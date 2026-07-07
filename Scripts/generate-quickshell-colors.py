@@ -134,9 +134,10 @@ def generate_gtk4_css(theme: dict[str, str]) -> str:
     surface_variant = theme.get("surface_variant", "#2d2d2d")
     error = theme.get("error", "#ff5555")
     on_error = theme.get("on_error", "#ffffff")
+    surface_container_lowest = theme.get("surface_container_lowest", "#1a1a1a")
 
     return f"""/* Generated GTK4/Libadwaita Colors */
-@define-color window_bg_color {surface};
+@define-color window_bg_color {surface_container_lowest};
 @define-color window_fg_color {on_surface};
 @define-color view_bg_color {surface_container_low};
 @define-color view_fg_color {on_surface};
@@ -146,7 +147,7 @@ def generate_gtk4_css(theme: dict[str, str]) -> str:
 @define-color popover_fg_color {on_surface};
 @define-color card_bg_color {surface_variant};
 @define-color card_fg_color {on_surface};
-@define-color sidebar_bg_color {surface_container_low};
+@define-color sidebar_bg_color {surface_container_lowest};
 @define-color sidebar_fg_color {on_surface};
 @define-color accent_color {primary};
 @define-color accent_bg_color {primary};

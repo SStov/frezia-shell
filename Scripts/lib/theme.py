@@ -929,34 +929,44 @@ def generate_pastel(palette, mode):
     from .palette import find_error_color
     
     primary = palette[0] if palette else Color(128, 128, 128)
-    secondary = palette[1] if len(palette) > 1 else shift_hue(primary, 30)
-    tertiary = palette[2] if len(palette) > 2 else shift_hue(primary, 60)
+    secondary = palette[1] if len(palette) > 1 else shift_hue(primary, 60)
+    tertiary = palette[2] if len(palette) > 2 else shift_hue(primary, 120)
     error = find_error_color(palette)
     
     h_p, s_p, _ = primary.to_hsl()
     h_s, s_s, _ = secondary.to_hsl()
     h_t, s_t, _ = tertiary.to_hsl()
     
+    # Clamp saturation to 15-35%
+    def clamp_s(s):
+        return max(0.15, min(s, 0.35))
+    
     if mode == "dark":
-        p_adj = Color.from_hsl(h_p, min(s_p, 0.4), 0.75)
-        s_adj = Color.from_hsl(h_s, min(s_s, 0.35), 0.70)
-        t_adj = Color.from_hsl(h_t, min(s_t, 0.35), 0.70)
+        p_adj = Color.from_hsl(h_p, clamp_s(s_p), 0.80)
+        s_adj = Color.from_hsl(h_s, clamp_s(s_s), 0.75)
+        t_adj = Color.from_hsl(h_t, clamp_s(s_t), 0.75)
         
-        surface = Color.from_hsl(h_p, min(s_p, 0.15), 0.12)
-        surface_variant = Color.from_hsl(h_p, min(s_p, 0.15), 0.16)
-        on_surface = Color.from_hsl(h_p, 0.05, 0.90)
-        on_surface_variant = Color.from_hsl(h_p, 0.05, 0.75)
-        outline = Color.from_hsl(h_p, 0.1, 0.3)
+        surface = Color.from_hsl(h_p, clamp_s(s_p), 0.12)
+        surface_variant = Color.from_hsl(h_p, clamp_s(s_p), 0.16)
+        
+        # Luminous text (30%)
+        on_surface = Color.from_hsl(h_p, 0.30, 0.92)
+        on_surface_variant = Color.from_hsl(h_p, 0.30, 0.82)
+        
+        outline = Color.from_hsl(h_p, 0.20, 0.40)
     else:
-        p_adj = Color.from_hsl(h_p, min(s_p, 0.4), 0.50)
-        s_adj = Color.from_hsl(h_s, min(s_s, 0.35), 0.45)
-        t_adj = Color.from_hsl(h_t, min(s_t, 0.35), 0.45)
+        p_adj = Color.from_hsl(h_p, clamp_s(s_p), 0.45)
+        s_adj = Color.from_hsl(h_s, clamp_s(s_s), 0.40)
+        t_adj = Color.from_hsl(h_t, clamp_s(s_t), 0.40)
         
-        surface = Color.from_hsl(h_p, min(s_p, 0.15), 0.95)
-        surface_variant = Color.from_hsl(h_p, min(s_p, 0.15), 0.90)
-        on_surface = Color.from_hsl(h_p, 0.05, 0.10)
-        on_surface_variant = Color.from_hsl(h_p, 0.05, 0.25)
-        outline = Color.from_hsl(h_p, 0.1, 0.7)
+        surface = Color.from_hsl(h_p, clamp_s(s_p), 0.95)
+        surface_variant = Color.from_hsl(h_p, clamp_s(s_p), 0.90)
+        
+        # Deep dark text, low saturation (15%)
+        on_surface = Color.from_hsl(h_p, 0.15, 0.20)
+        on_surface_variant = Color.from_hsl(h_p, 0.15, 0.30)
+        
+        outline = Color.from_hsl(h_p, 0.20, 0.70)
         
     return _create_theme_dict(p_adj, s_adj, t_adj, error, surface, surface_variant, on_surface, on_surface_variant, outline, outline, mode)
 
@@ -966,8 +976,8 @@ def generate_vibrant(palette, mode):
     from .palette import find_error_color
     
     primary = palette[0] if palette else Color(128, 128, 128)
-    secondary = palette[1] if len(palette) > 1 else shift_hue(primary, 30)
-    tertiary = palette[2] if len(palette) > 2 else shift_hue(primary, 60)
+    secondary = palette[1] if len(palette) > 1 else shift_hue(primary, 60)
+    tertiary = palette[2] if len(palette) > 2 else shift_hue(primary, 120)
     error = find_error_color(palette)
     
     h_p, s_p, l_p = primary.to_hsl()
@@ -979,21 +989,29 @@ def generate_vibrant(palette, mode):
         s_adj = Color.from_hsl(h_s, max(s_s, 0.5), max(l_s, 0.6))
         t_adj = Color.from_hsl(h_t, max(s_t, 0.5), max(l_t, 0.6))
         
-        surface = Color.from_hsl(h_p, min(s_p, 0.3), 0.10)
-        surface_variant = Color.from_hsl(h_p, min(s_p, 0.3), 0.15)
-        on_surface = Color.from_hsl(h_p, 0.05, 0.95)
-        on_surface_variant = Color.from_hsl(h_p, 0.05, 0.80)
-        outline = Color.from_hsl(h_p, 0.2, 0.4)
+        # Deep dark surface with slight tint
+        surface = Color.from_hsl(h_p, 0.15, 0.08)
+        surface_variant = Color.from_hsl(h_p, 0.15, 0.12)
+        
+        # Luminous text (35-40% saturation)
+        on_surface = Color.from_hsl(h_p, 0.35, 0.90)
+        on_surface_variant = Color.from_hsl(h_p, 0.40, 0.80)
+        
+        outline = Color.from_hsl(h_p, 0.30, 0.40)
     else:
         p_adj = Color.from_hsl(h_p, max(s_p, 0.6), min(l_p, 0.4))
         s_adj = Color.from_hsl(h_s, max(s_s, 0.5), min(l_s, 0.4))
         t_adj = Color.from_hsl(h_t, max(s_t, 0.5), min(l_t, 0.4))
         
-        surface = Color.from_hsl(h_p, min(s_p, 0.4), 0.95)
-        surface_variant = Color.from_hsl(h_p, min(s_p, 0.4), 0.88)
-        on_surface = Color.from_hsl(h_p, 0.05, 0.10)
-        on_surface_variant = Color.from_hsl(h_p, 0.05, 0.25)
-        outline = Color.from_hsl(h_p, 0.2, 0.6)
+        # Bright surface
+        surface = Color.from_hsl(h_p, 0.15, 0.96)
+        surface_variant = Color.from_hsl(h_p, 0.15, 0.90)
+        
+        # Deep dark text with low saturation (15-20%)
+        on_surface = Color.from_hsl(h_p, 0.15, 0.15)
+        on_surface_variant = Color.from_hsl(h_p, 0.20, 0.25)
+        
+        outline = Color.from_hsl(h_p, 0.20, 0.60)
         
     return _create_theme_dict(p_adj, s_adj, t_adj, error, surface, surface_variant, on_surface, on_surface_variant, outline, outline, mode)
 
@@ -1003,34 +1021,46 @@ def generate_intensified(palette, mode):
     from .palette import find_error_color
     
     primary = palette[0] if palette else Color(128, 128, 128)
-    secondary = palette[1] if len(palette) > 1 else shift_hue(primary, 30)
-    tertiary = palette[2] if len(palette) > 2 else shift_hue(primary, 60)
+    secondary = palette[1] if len(palette) > 1 else shift_hue(primary, 60)
+    tertiary = palette[2] if len(palette) > 2 else shift_hue(primary, 120)
     error = find_error_color(palette)
     
     h_p, s_p, _ = primary.to_hsl()
     h_s, s_s, _ = secondary.to_hsl()
     h_t, s_t, _ = tertiary.to_hsl()
     
+    # Boost saturation up to 100%
+    def boost_s(s):
+        return max(0.85, min(s * 1.5, 1.0))
+        
     if mode == "dark":
-        p_adj = Color.from_hsl(h_p, 1.0, 0.65)
-        s_adj = Color.from_hsl(h_s, 0.9, 0.65)
-        t_adj = Color.from_hsl(h_t, 0.9, 0.65)
+        p_adj = Color.from_hsl(h_p, boost_s(s_p), 0.65)
+        s_adj = Color.from_hsl(h_s, boost_s(s_s), 0.65)
+        t_adj = Color.from_hsl(h_t, boost_s(s_t), 0.65)
         
-        surface = Color.from_hsl(h_p, 0.6, 0.08)
-        surface_variant = Color.from_hsl(h_p, 0.6, 0.12)
-        on_surface = Color.from_hsl(h_p, 0.2, 0.98)
-        on_surface_variant = Color.from_hsl(h_p, 0.2, 0.85)
-        outline = Color.from_hsl(h_p, 0.4, 0.5)
+        # OLED-like dark surface
+        surface = Color.from_hsl(h_p, 0.40, 0.05)
+        surface_variant = Color.from_hsl(h_p, 0.40, 0.09)
+        
+        # Extreme glowing text (40%)
+        on_surface = Color.from_hsl(h_p, 0.40, 0.90)
+        on_surface_variant = Color.from_hsl(h_p, 0.40, 0.80)
+        
+        outline = Color.from_hsl(h_p, 0.50, 0.40)
     else:
-        p_adj = Color.from_hsl(h_p, 1.0, 0.40)
-        s_adj = Color.from_hsl(h_s, 0.9, 0.40)
-        t_adj = Color.from_hsl(h_t, 0.9, 0.40)
+        p_adj = Color.from_hsl(h_p, boost_s(s_p), 0.35)
+        s_adj = Color.from_hsl(h_s, boost_s(s_s), 0.35)
+        t_adj = Color.from_hsl(h_t, boost_s(s_t), 0.35)
         
-        surface = Color.from_hsl(h_p, 0.6, 0.92)
-        surface_variant = Color.from_hsl(h_p, 0.6, 0.82)
-        on_surface = Color.from_hsl(h_p, 0.2, 0.05)
-        on_surface_variant = Color.from_hsl(h_p, 0.2, 0.15)
-        outline = Color.from_hsl(h_p, 0.4, 0.5)
+        # Very bright surface
+        surface = Color.from_hsl(h_p, 0.30, 0.98)
+        surface_variant = Color.from_hsl(h_p, 0.30, 0.92)
+        
+        # Dark intense text (20%)
+        on_surface = Color.from_hsl(h_p, 0.20, 0.10)
+        on_surface_variant = Color.from_hsl(h_p, 0.20, 0.20)
+        
+        outline = Color.from_hsl(h_p, 0.40, 0.50)
         
     return _create_theme_dict(p_adj, s_adj, t_adj, error, surface, surface_variant, on_surface, on_surface_variant, outline, outline, mode)
 
