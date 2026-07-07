@@ -1,0 +1,571 @@
+//@ pragma UseQApplication
+import QtQuick
+import Quickshell
+import Quickshell.Wayland
+import Quickshell.Hyprland
+import "core"
+import "widgets"
+
+
+
+
+ShellRoot {
+    id: shellRoot
+    
+    // ★ ГЛОБАЛЬНЫЕ НАСТРОЙКИ СЛОЯ QUICKSHELL ★
+    // Единый источник правды (Single Source of Truth).
+    // Все виджеты читают эти свойства через реактивные биндинги.
+    // Изменения применяются мгновенно, без перезапуска quickshell.
+    property real qsOpacity: 0.95       // Прозрачность фона виджетов (0.0 — прозрачно, 1.0 — непрозрачно)
+    // Внимание: blur виджетов управляется статически через hl.layer_rule() в hyprland.lua
+    // Quickshell 0.3.0 PanelWindow НЕ имеет свойства blur (runtime blur невозможен).
+    
+    // Координаты для окон, зависящие от кнопок на панели 
+    property real calendarX: 0
+    property real sysMenuX: 0
+    property real calcX: 0
+    property real clipboardX: 0
+    property real tamaX: 0
+    property real mediaPlayerX: 0
+    property real ocrX: 0
+    property real powerX: 0
+    property real trayMenuX: 0
+
+    // Глобальная история уведомлений
+    property alias globalNotifModel: globalNotifModel
+    ListModel {
+        id: globalNotifModel
+    }
+
+    function getPopupX(xPos, windowWidth) {
+        let marginL = settingsMenu.topBarWidth === 0 ? settingsMenu.topBarMarginSide : ((1920 - settingsMenu.topBarWidth) / 2);
+        let targetX = marginL + xPos - (windowWidth / 2);
+        return Math.max(10, Math.min(1920 - windowWidth - 10, targetX));
+    }
+    
+    function getPopupY() {
+        return settingsMenu.topBarMarginTop + settingsMenu.topBarHeight + 10
+    }
+
+    // Закрыть все popup-виджеты
+    function closeAllPopups() {
+        calendarMenu.isOpen = false
+        sysMenu.isOpen = false
+        calcMenu.isOpen = false
+        clipboardMenu.isOpen = false
+        powerMenu.isOpen = false
+        mediaPlayerPopup.isOpen = false
+        trayMenu.isOpen = false
+        tamaWidget.isOpen = false
+        ocrWidget.isOpen = false
+        notificationCenter.isOpen = false
+        appLauncher.close()
+    }
+
+    // 🌟 1. ЦЕНТР УПРАВЛЕНИЯ НАСТРОЙКАМИ
+    SettingsMenu {
+        id: settingsMenu
+    }
+
+
+    DesktopImage {
+        settings: settingsMenu
+    }
+
+    DesktopVinyl {}
+
+    // Углы экрана (скругление)
+    CornerOverlay {
+        id: cornerOverlay
+        cornerMode: settingsMenu.cornerMode
+    }
+
+    // 1. НАШ НОВЫЙ ВЫБОР ОБОЕВ
+    WallpaperSelector {
+        id: wallpaperSelector
+        wallDir: settingsMenu.wallDir // Прокидываем путь из настроек
+        useMatugen: settingsMenu.useMatugen // Прокидываем переключатель
+    }
+
+    // 2. ГЛОБАЛЬНЫЙ ХОТКЕЙ
+    GlobalShortcut {
+        name: "toggleWallpaper" 
+        description: "Открывает меню выбора обоев"
+        
+        onPressedChanged: {
+            if (pressed) {
+                console.log("🔥 Сигнал получен! Открываю обои..."); // <-- добавили лог
+                wallpaperSelector.isOpen = !wallpaperSelector.isOpen;
+            }
+        }
+    }
+    
+    NotificationOverlay {
+        // Он привязан к краям экрана внутри самого компонента
+    }
+    
+    // Центр уведомлений
+    NotificationCenter {
+        id: notificationCenter
+    }
+    
+    // 1. Создаем сам лаунчер (он невидим, пока его не вызовут)
+    AppLauncher {
+        id: appLauncher
+    }
+
+    // 2. НАИВЫСШАЯ МАГИЯ: Прямая связь с Hyprland без bash-команд!
+    GlobalShortcut {
+        name: "toggleLauncher" // Имя, которое мы передадим в Hyprland
+        description: "Открывает меню приложений"
+        
+        onPressedChanged: {
+            if (pressed) {
+                appLauncher.toggle()
+            }
+        }
+    }
+
+    // ==========================================
+    // ПРЕДПРОСМОТР РАБОЧИХ СТОЛОВ
+    // ==========================================
+    WorkspacePreviewWindow {
+        id: wsPreviewWindow
+    }
+
+    // Закрывать виджеты при клике на другое окно (когда фокус меняется)
+    // Отслеживаем изменение активного окна в Hyprland
+    Connections {
+        target: Hyprland
+        
+        // Когда активное окно меняется на не-виджет, закрываем все виджеты
+        onFocusedWindowChanged: {
+            // Если есть открытые виджеты
+            let anyOpen = calendarMenu.isOpen || sysMenu.isOpen || calcMenu.isOpen || 
+                         clipboardMenu.isOpen || powerMenu.isOpen || 
+                         mediaPlayerPopup.isOpen || topBar.isTamagotchiOpen || ocrWidget.isOpen || notificationCenter.isOpen
+            
+            if (anyOpen && Hyprland.focusedWindow) {
+                // Получаем класс активного окна
+                let activeClass = Hyprland.focusedWindow.initialClass || Hyprland.focusedWindow.class || ""
+                
+                // Если активное окно не является нашим виджетом, закрываем все
+                if (activeClass !== "quickshell" && activeClass !== "qs-launcher") {
+                    shellRoot.closeAllPopups()
+                }
+            }
+        }
+    }
+
+    // ==========================================
+    // 1. ГЛАВНАЯ ПАНЕЛЬ (Широкая парящая капсула)
+    // ==========================================
+    PanelWindow {
+        id: topPanelWindow
+        
+        anchors {
+            top: settingsMenu.topBarPosition === 0
+            bottom: settingsMenu.topBarPosition === 1
+            left: settingsMenu.topBarWidth === 0
+            right: settingsMenu.topBarWidth === 0
+        }
+        
+        margins {
+            top: settingsMenu.topBarPosition === 0 ? settingsMenu.topBarMarginTop : 0
+            bottom: settingsMenu.topBarPosition === 1 ? settingsMenu.topBarMarginTop : 0
+            left: settingsMenu.topBarWidth === 0 ? settingsMenu.topBarMarginSide : 0
+            right: settingsMenu.topBarWidth === 0 ? settingsMenu.topBarMarginSide : 0
+        }
+        
+        implicitWidth: settingsMenu.topBarWidth > 0 ? settingsMenu.topBarWidth : -1
+        implicitHeight: settingsMenu.topBarHeight
+        color: "transparent"
+        
+        exclusionMode: ExclusionMode.Auto 
+        WlrLayershell.layer: WlrLayer.Top
+        WlrLayershell.namespace: "quickshell-topbar" 
+        
+ TopBar {
+            id: topBar
+            anchors.fill: parent
+            hostWindow: topPanelWindow
+            bgOpacity: settingsMenu.topBarOpacity // Связываем прозрачность!
+            topBarOrder: settingsMenu.topBarOrder // Связываем порядок элементов!
+            topBarTraySpacing: settingsMenu.topBarTraySpacing // Передаем расстояние между иконками трея!
+            mediaPlayerWidth: settingsMenu.mediaPlayerWidth
+            mediaPlayerPosition: settingsMenu.mediaPlayerPosition
+            
+            // ПРИВЯЗКА СОСТОЯНИЙ
+            isCalendarOpen: calendarMenu.isOpen
+            isSysMenuOpen: sysMenu.isOpen
+            isCalcOpen: calcMenu.isOpen
+            isClipboardOpen: clipboardMenu.isOpen
+            isPowerOpen: powerMenu.isOpen
+            isNotifCenterOpen: notificationCenter.isOpen
+            
+            onToggleCalendar: (xPos) => {
+                calendarX = xPos
+                calendarMenu.isOpen = !calendarMenu.isOpen
+                if (calendarMenu.isOpen) { sysMenu.isOpen = false; calcMenu.isOpen = false; clipboardMenu.isOpen = false; }
+            }
+            onToggleSysMenu: (xPos) => {
+                sysMenuX = xPos
+                sysMenu.isOpen = !sysMenu.isOpen
+                if (sysMenu.isOpen) { calendarMenu.isOpen = false; calcMenu.isOpen = false; clipboardMenu.isOpen = false; }
+            }
+            onToggleCalc: (xPos) => {
+                calcX = xPos
+                calcMenu.isOpen = !calcMenu.isOpen
+                if (calcMenu.isOpen) { sysMenu.isOpen = false; calendarMenu.isOpen = false; clipboardMenu.isOpen = false; }
+            }
+            onToggleClipboard: (xPos) => {
+                clipboardX = xPos
+                clipboardMenu.isOpen = !clipboardMenu.isOpen
+                if (clipboardMenu.isOpen) { sysMenu.isOpen = false; calendarMenu.isOpen = false; calcMenu.isOpen = false; }
+            }
+            onToggleSettings: {
+                settingsMenu.toggle()
+            }
+            onToggleTamagotchi: (xPos) => {
+                tamaX = xPos
+            }
+            onToggleMediaPlayer: (xPos) => {
+                mediaPlayerX = xPos
+                mediaPlayerPopup.isOpen = !mediaPlayerPopup.isOpen
+            }
+            onToggleOcr: (xPos) => {
+                ocrX = xPos
+                ocrWidget.isOpen = !ocrWidget.isOpen
+            }
+            onTogglePower: (xPos) => {
+                powerX = xPos
+                powerMenu.isOpen = !powerMenu.isOpen
+                if (powerMenu.isOpen) { calendarMenu.isOpen = false; sysMenu.isOpen = false; calcMenu.isOpen = false; clipboardMenu.isOpen = false; trayMenu.isOpen = false; }
+            }
+            onToggleTrayMenu: (xPos, menuHandle) => {
+                trayMenuX = xPos
+                trayMenu.menuHandle = menuHandle
+                trayMenu.isOpen = !trayMenu.isOpen
+                if (trayMenu.isOpen) { calendarMenu.isOpen = false; sysMenu.isOpen = false; calcMenu.isOpen = false; clipboardMenu.isOpen = false; powerMenu.isOpen = false; }
+            }
+            onToggleNotificationCenter: {
+                notificationCenter.isOpen = !notificationCenter.isOpen
+                if (notificationCenter.isOpen) { calendarMenu.isOpen = false; sysMenu.isOpen = false; calcMenu.isOpen = false; clipboardMenu.isOpen = false; powerMenu.isOpen = false; }
+            }
+            onShowWorkspacePreview: (wsId, xPos) => {
+                wsPreviewWindow.targetWsId = wsId
+                
+                let isTop = settingsMenu.topBarPosition === 0
+                let marginL = settingsMenu.topBarWidth === 0 ? settingsMenu.topBarMarginSide : ((1920 - settingsMenu.topBarWidth) / 2)
+                
+                // Центрируем всплывающее окошко относительно кнопки воркспейса
+                wsPreviewWindow.targetX = marginL + xPos - 80 
+                
+                if (isTop) {
+                    wsPreviewWindow.targetY = settingsMenu.topBarMarginTop + settingsMenu.topBarHeight + 10
+                } else {
+                    wsPreviewWindow.targetY = -(settingsMenu.topBarMarginTop + settingsMenu.topBarHeight + 10)
+                }
+                
+                wsPreviewWindow.isOpen = true
+            }
+            onHideWorkspacePreview: {
+                wsPreviewWindow.isOpen = false
+            }
+        }
+    }
+    
+    // ==========================================
+    // ЕДИНОЕ ОКНО: КАЛЕНДАРЬ + ЗАДАЧИ
+    // ==========================================
+    PanelWindow {
+        id: calendarPanelWindow
+        anchors { 
+            top: settingsMenu.topBarPosition === 0
+            bottom: settingsMenu.topBarPosition === 1
+            left: true 
+        }
+        margins { 
+            top: settingsMenu.topBarPosition === 0 ? getPopupY() : 0
+            bottom: settingsMenu.topBarPosition === 1 ? getPopupY() : 0
+            left: getPopupX(calendarX, calendarMenu.maxW) 
+        }
+        color: "transparent"
+        exclusionMode: ExclusionMode.Ignore
+        WlrLayershell.layer: WlrLayer.Top
+        WlrLayershell.namespace: "qs-calendar"
+
+        implicitWidth: calendarMenu.maxW
+        implicitHeight: calendarMenu.maxH
+        visible: calendarMenu.isOpen || calendarMenu.panelH > 0
+        // 🌟 ДОБАВЬ ВОТ ЭТУ СТРОЧКУ (Разрешаем фокус клавиатуры по клику)
+        WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
+
+        CalendarMenu {
+            id: calendarMenu
+            anchors.top: parent.top
+            anchors.left: parent.left
+            bgOpacity: shellRoot.qsOpacity
+        }
+    }
+
+    // ==========================================
+    // ТРЕЙ МЕНЮ (КОНТЕКСТНОЕ МЕНЮ ТРЕЯ)
+    // ==========================================
+    PanelWindow {
+        id: trayMenuPanelWindow
+        anchors { 
+            top: settingsMenu.topBarPosition === 0
+            bottom: settingsMenu.topBarPosition === 1
+            left: true 
+        }
+        margins { 
+            top: settingsMenu.topBarPosition === 0 ? getPopupY() : 0
+            bottom: settingsMenu.topBarPosition === 1 ? getPopupY() : 0
+            left: getPopupX(trayMenuX, trayMenu.maxW) 
+        }
+        color: "transparent"
+        exclusionMode: ExclusionMode.Ignore
+        WlrLayershell.layer: WlrLayer.Top
+        WlrLayershell.namespace: "qs-traymenu"
+
+        implicitWidth: trayMenu.maxW
+        implicitHeight: trayMenu.maxH
+        visible: trayMenu.isOpen || trayMenu.panelH > 0
+        WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
+
+        TrayMenu {
+            id: trayMenu
+            anchors.top: parent.top
+            anchors.left: parent.left
+            bgOpacity: shellRoot.qsOpacity
+        }
+    }
+
+    // ==========================================
+    // 3. СИСТЕМНОЕ МЕНЮ (Control Center)
+    // ==========================================
+    PanelWindow {
+        id: sysMenuPanelWindow
+        anchors { 
+            top: settingsMenu.topBarPosition === 0
+            bottom: settingsMenu.topBarPosition === 1
+            left: true 
+        }
+        margins { 
+            top: settingsMenu.topBarPosition === 0 ? getPopupY() : 0
+            bottom: settingsMenu.topBarPosition === 1 ? getPopupY() : 0
+            left: getPopupX(sysMenuX, sysMenu.maxW) 
+        }
+        color: "transparent"
+        exclusionMode: ExclusionMode.Ignore
+        WlrLayershell.layer: WlrLayer.Top
+        
+        WlrLayershell.namespace: "qs-sysmenu"
+
+        implicitWidth: sysMenu.maxW
+        implicitHeight: sysMenu.maxH
+        visible: sysMenu.isOpen || sysMenu.panelH > 0
+
+        SystemMenu {
+            id: sysMenu
+            anchors.top: parent.top
+            anchors.left: parent.left
+            settingsMenu: settingsMenu
+            bgOpacity: shellRoot.qsOpacity
+        }
+    }
+
+    // ==========================================
+    // 4. КАЛЬКУЛЯТОР
+    // ==========================================
+    PanelWindow {
+        id: calcPanelWindow
+        anchors { 
+            top: settingsMenu.topBarPosition === 0
+            bottom: settingsMenu.topBarPosition === 1
+            left: true 
+        }
+        margins { 
+            top: settingsMenu.topBarPosition === 0 ? getPopupY() : 0
+            bottom: settingsMenu.topBarPosition === 1 ? getPopupY() : 0
+            left: getPopupX(calcX, calcMenu.maxW) 
+        }
+        color: "transparent"
+        exclusionMode: ExclusionMode.Ignore
+        WlrLayershell.layer: WlrLayer.Top
+        WlrLayershell.namespace: "qs-calc"
+        WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
+
+        implicitWidth: calcMenu.maxW
+        implicitHeight: calcMenu.maxH
+        visible: calcMenu.isOpen || calcMenu.panelH > 0
+
+        CalculatorMenu {
+            id: calcMenu
+            anchors.top: parent.top
+            anchors.left: parent.left
+            bgOpacity: shellRoot.qsOpacity
+        }
+    }
+
+    // ==========================================
+    // 5. БУФЕР ОБМЕНА
+    // ==========================================
+    PanelWindow {
+        id: clipboardPanelWindow
+        anchors { 
+            top: settingsMenu.topBarPosition === 0
+            bottom: settingsMenu.topBarPosition === 1
+            left: true 
+        }
+        margins { 
+            top: settingsMenu.topBarPosition === 0 ? getPopupY() : 0
+            bottom: settingsMenu.topBarPosition === 1 ? getPopupY() : 0
+            left: getPopupX(clipboardX, clipboardMenu.maxW) 
+        }
+        color: "transparent"
+        exclusionMode: ExclusionMode.Ignore
+        WlrLayershell.layer: WlrLayer.Top
+        WlrLayershell.namespace: "qs-clipboard"
+        WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
+
+        implicitWidth: clipboardMenu.maxW
+        implicitHeight: clipboardMenu.maxH
+        visible: clipboardMenu.isOpen || clipboardMenu.panelH > 0
+
+        ClipboardMenu {
+            id: clipboardMenu
+            anchors.top: parent.top
+            anchors.left: parent.left
+        }
+    }
+
+    // ==========================================
+    // 6. ТАМАГОЧИ
+    // ==========================================
+    PanelWindow {
+        id: tamaPanelWindow
+        anchors { 
+            top: settingsMenu.topBarPosition === 0
+            bottom: settingsMenu.topBarPosition === 1
+            left: true 
+        }
+        margins { 
+            top: settingsMenu.topBarPosition === 0 ? getPopupY() : 0
+            bottom: settingsMenu.topBarPosition === 1 ? getPopupY() : 0
+            left: getPopupX(tamaX, tamaWidget.width) 
+        }
+        color: "transparent"
+        exclusionMode: ExclusionMode.Ignore
+        WlrLayershell.layer: WlrLayer.Top
+        WlrLayershell.namespace: "qs-tama"
+        WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
+
+        implicitWidth: tamaWidget.width
+        implicitHeight: tamaWidget.height
+        visible: topBar.isTamagotchiOpen
+
+        TamagotchiWidget {
+            id: tamaWidget
+            anchors.top: parent.top
+            anchors.left: parent.left
+        }
+    }
+
+    // ==========================================
+    // 7. МЕДИА ПЛЕЕР
+    // ==========================================
+    PanelWindow {
+        id: mediaPlayerPanelWindow
+        anchors { 
+            top: settingsMenu.topBarPosition === 0
+            bottom: settingsMenu.topBarPosition === 1
+            left: true 
+        }
+        margins { 
+            top: settingsMenu.topBarPosition === 0 ? getPopupY() : 0
+            bottom: settingsMenu.topBarPosition === 1 ? getPopupY() : 0
+            left: getPopupX(mediaPlayerX, mediaPlayerPopup.width) 
+        }
+        color: "transparent"
+        exclusionMode: ExclusionMode.Ignore
+        WlrLayershell.layer: WlrLayer.Top
+        WlrLayershell.namespace: "qs-mediaplayer"
+        WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
+
+        implicitWidth: mediaPlayerPopup.width
+        implicitHeight: mediaPlayerPopup.height
+        visible: mediaPlayerPopup.isOpen
+
+        MediaPlayerPopup {
+            id: mediaPlayerPopup
+            anchors.top: parent.top
+            anchors.left: parent.left
+            bgOpacity: shellRoot.qsOpacity
+        }
+    }
+
+    // ==========================================
+    // 8. OCR ВИДЖЕТ
+    // ==========================================
+    PanelWindow {
+        id: ocrPanelWindow
+        anchors { 
+            top: settingsMenu.topBarPosition === 0
+            bottom: settingsMenu.topBarPosition === 1
+            left: true 
+        }
+        margins { 
+            top: settingsMenu.topBarPosition === 0 ? getPopupY() : 0
+            bottom: settingsMenu.topBarPosition === 1 ? getPopupY() : 0
+            left: getPopupX(ocrX, ocrWidget.width) 
+        }
+        color: "transparent"
+        exclusionMode: ExclusionMode.Ignore
+        WlrLayershell.layer: WlrLayer.Top
+        WlrLayershell.namespace: "qs-ocr"
+        WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
+
+        implicitWidth: ocrWidget.width
+        implicitHeight: ocrWidget.height
+        visible: ocrWidget.isOpen
+
+        OcrWidget {
+            id: ocrWidget
+            anchors.top: parent.top
+            anchors.left: parent.left
+        }
+    }
+
+    // ==========================================
+    // 9. POWER MENU (Выключение, перезагрузка и т.д.)
+    // ==========================================
+    PanelWindow {
+        id: powerPanelWindow
+        anchors { 
+            top: settingsMenu.topBarPosition === 0
+            bottom: settingsMenu.topBarPosition === 1
+            left: true 
+        }
+        margins { 
+            top: settingsMenu.topBarPosition === 0 ? getPopupY() : 0
+            bottom: settingsMenu.topBarPosition === 1 ? getPopupY() : 0
+            left: getPopupX(powerX, powerMenu.maxW) 
+        }
+        color: "transparent"
+        exclusionMode: ExclusionMode.Ignore
+        WlrLayershell.layer: WlrLayer.Top
+        WlrLayershell.namespace: "qs-power"
+
+        implicitWidth: powerMenu.maxW
+        implicitHeight: powerMenu.maxH
+        visible: powerMenu.isOpen || powerMenu.panelH > 0
+
+        PowerMenu {
+            id: powerMenu
+            anchors.top: parent.top
+            anchors.left: parent.left
+        }
+    }
+}

@@ -1,0 +1,25 @@
+module qs.widgets
+CalendarMenu 1.0 CalendarMenu.qml
+SystemMenu 1.0 SystemMenu.qml
+TopBar 1.0 TopBar.qml
+NotificationOverlay 1.0 NotificationOverlay.qml
+AppLauncher 1.0 AppLauncher.qml
+TodoMenu 1.0 TodoMenu.qml
+ElasticDropdown 1.0 ElasticDropdown.qml
+WallpaperSelector 1.0 WallpaperSelector.qml
+DesktopVinyl 1.0 DesktopVinyl.qml
+DesktopImage 1.0 DesktopImage.qml
+ClipboardMenu 1.0 ClipboardMenu.qml
+CalculatorMenu 1.0 CalculatorMenu.qml
+SettingsMenu 1.0 SettingsMenu.qml
+TamagotchiWidget 1.0 TamagotchiWidget.qml
+WorkspacePreviewWindow 1.0 WorkspacePreviewWindow.qml
+MediaPlayerBar 1.0 MediaPlayerBar.qml
+MediaPlayerPopup 1.0 MediaPlayerPopup.qml
+OcrWidget 1.0 OcrWidget.qml
+PowerMenu 1.0 PowerMenu.qml
+CornerOverlay 1.0 CornerOverlay.qml
+TrayItem 1.0 TrayItem.qml
+TrayMenu 1.0 TrayMenu.qml
+NotificationCenter 1.0 NotificationCenter.qml
+singleton MediaService 1.0 MediaService.qml

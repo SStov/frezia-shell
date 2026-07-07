@@ -1,0 +1,462 @@
+import QtQuick
+import Quickshell.Hyprland
+import QtQuick.Window
+import Quickshell.Services.SystemTray
+import Quickshell.Io
+import QtQuick.Effects
+import Qt5Compat.GraphicalEffects
+import "../core"
+import "../components"
+
+Rectangle {
+    id: rootBar
+    
+    // Фон панели — единая прозрачность как в SettingsMenu
+    color: Qt.rgba(Colors.rootBg.r, Colors.rootBg.g, Colors.rootBg.b, shellRoot ? shellRoot.qsOpacity : 0.95)
+    radius: 20
+    
+    border.color: Colors.outline
+    border.width: 1 * Theme.borderWidth
+
+    property var hostWindow 
+
+    signal toggleCalendar(real xPos)
+    signal toggleSysMenu(real xPos)
+    signal toggleTodo()
+    signal toggleCalc(real xPos)
+    signal toggleSettings()
+    signal toggleClipboard(real xPos)
+    signal toggleTamagotchi(real xPos)
+    signal toggleMediaPlayer(real xPos)
+    signal toggleOcr(real xPos)
+    signal togglePower(real xPos)
+    signal toggleNotificationCenter()
+    signal toggleTrayMenu(real xPos, var menuHandle)
+    signal showWorkspacePreview(int wsId, real xPos)
+    signal hideWorkspacePreview()
+
+    property bool isCalendarOpen: false
+    property bool isSysMenuOpen: false
+    property bool isTodoOpen: false 
+    property bool isCalcOpen: false
+    property bool isClipboardOpen: false
+    property bool isTamagotchiOpen: false
+    property bool isMediaPlayerOpen: false
+    property bool isOcrOpen: false
+    property bool isPowerOpen: false
+    property bool isNotifCenterOpen: false
+    property real bgOpacity: 0.7
+    property var topBarOrder: [0, 1, 2]
+    property int topBarTraySpacing: 10
+    property int mediaPlayerWidth: 180
+    property int mediaPlayerPosition: 0 // 0 = слева от часов, 1 = справа от часов
+
+    // Словарь для хранения количества окон на каждом рабочем столе
+    property var wsWindowCounts: ({})
+
+    Process {
+        id: wsCountsProcess
+        command: ["hyprctl", "workspaces", "-j"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                if (!this.text) return;
+                try {
+                    let wss = JSON.parse(this.text);
+                    let counts = {};
+                    for (let i = 0; i < wss.length; i++) counts[wss[i].id] = wss[i].windows;
+                    rootBar.wsWindowCounts = counts;
+                } catch(e) {}
+            }
+        }
+    }
+
+
+
+    Timer {
+        interval: 500; running: true; repeat: true
+        onTriggered: { 
+            wsCountsProcess.running = false; wsCountsProcess.running = true; 
+        }
+    }
+
+    // ==========================================
+    // КОМПОНЕНТЫ МЕНЮ (Запакованы для перестановки)
+    // ==========================================
+    Component {
+        id: compWorkspaces
+        Row {
+            leftPadding: 25; rightPadding: 25
+            spacing: 8
+            
+            Repeater {
+                model: Hyprland.workspaces
+                Item {
+                    id: wsItem
+                    readonly property int wsId: modelData.id
+                    readonly property bool isActive: Hyprland.focusedWorkspace != null && Hyprland.focusedWorkspace.id === wsId
+                    readonly property bool hasWindows: rootBar.wsWindowCounts[wsId] > 0
+                    readonly property bool isUrgent: modelData.urgent
+                    
+                    // Строгая физика ширины для контейнера (без желе), чтобы панель не дергалась!
+                    // Расширяем и при активном состоянии, и при появлении уведомления (emergence)
+                    width: (isActive || isUrgent) ? 25 : 12
+                    height: 12
+                    Behavior on width { NumberAnimation { duration: 200; easing.type: Easing.OutQuart } }
+
+                    Rectangle {
+                        anchors.centerIn: parent
+                        height: 12
+                        // Визуальная пластичная ширина (с желе!)
+                        width: (isActive || isUrgent) ? 25 : 12
+                        radius: 6
+                        
+                        // Алый цвет для urgent состояний, иначе стандартная тема
+                        color: isUrgent ? Colors.red : (isActive ? Colors.accentBlue : (hasWindows ? Qt.rgba(Colors.textMain.r, Colors.textMain.g, Colors.textMain.b, 0.5) : Qt.rgba(Colors.textSub.r, Colors.textSub.g, Colors.textSub.b, 0.35)))
+                        
+                        Behavior on width { SpringAnimation { spring: 2.0; damping: 0.4; mass: 0.9 } }
+                        Behavior on color { ColorAnimation { duration: 150 } }
+                    }
+
+                    // ★ НАТИВНЫЙ LUA DISPATCH (Hyprland 0.55+) ★
+                    // Hyprland.dispatch() больше не работает в Lua-конфиге.
+                    // Используем hyprctl eval с hl.dsp.focus({workspace = id})
+                    Process {
+                        id: wsDispatchProc
+                        function switchToWorkspace(id) {
+                            command = ["hyprctl", "eval", "hl.dispatch(hl.dsp.focus({workspace = " + id + "}))"];
+                            running = true;
+                        }
+                    }
+
+                    MouseArea {
+                        id: wsMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onEntered: {
+                            // Получаем точную X-координату кнопки относительно TopBar
+                            let pos = mapToItem(rootBar, 0, 0)
+                            rootBar.showWorkspacePreview(wsId, pos.x)
+                        }
+                        onExited: {
+                            rootBar.hideWorkspacePreview()
+                        }
+                        onClicked: wsDispatchProc.switchToWorkspace(wsId)
+                    }
+                    
+                    scale: wsMouse.pressed ? 0.8 : (wsMouse.containsMouse ? 1.15 : 1.0)
+                    Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
+                }
+            }
+        }
+    }
+
+    Component {
+        id: compClock
+        Rectangle {
+            height: 34
+            width: clockRow.width + 8
+            radius: 17
+            color: rootBar.isCalendarOpen ? Qt.rgba(Colors.muted.r, Colors.muted.g, Colors.muted.b, 0.4) : "transparent"
+            Behavior on color { ColorAnimation { duration: 150 } }
+
+            Row {
+                id: clockRow
+                anchors.centerIn: parent
+                spacing: 8
+                
+                MediaPlayerBar {
+                    id: mediaPlayerBarLeft
+                    widgetWidth: rootBar.mediaPlayerWidth
+                    visible: rootBar.mediaPlayerPosition === 0
+                    width: rootBar.mediaPlayerPosition === 0 ? widgetWidth : 0
+                    onTogglePopup: (xPos) => {
+                        rootBar.isMediaPlayerOpen = !rootBar.isMediaPlayerOpen;
+                        rootBar.toggleMediaPlayer(xPos);
+                    }
+                }
+                
+                Rectangle {
+                    id: clockBtn
+                    width: 150; height: 30; radius: 15
+                    color: rootBar.isCalendarOpen ? Qt.rgba(Colors.accentBlue.r, Colors.accentBlue.g, Colors.accentBlue.b, 0.85) : (clockMouse.containsMouse ? Qt.rgba(Colors.card.r, Colors.card.g, Colors.card.b, 0.6) : "transparent")
+                    scale: clockMouse.pressed ? 0.95 : (clockMouse.containsMouse ? 1.03 : 1.0)
+                    
+                    StyledText {
+                        id: clockText
+                        anchors.centerIn: parent
+                        color: rootBar.isCalendarOpen ? Colors.bg : Colors.textMain
+                        font.pixelSize: 14; font.bold: true
+                        Timer { interval: 1000; running: true; repeat: true; onTriggered: clockText.text = Qt.formatDateTime(new Date(), "ddd, d MMM hh:mm") }
+                        Component.onCompleted: clockText.text = Qt.formatDateTime(new Date(), "ddd, d MMM hh:mm")
+                    }
+
+                    MouseArea {
+                        id: clockMouse
+                        anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            let pos = mapToItem(rootBar, width / 2, 0)
+                            rootBar.toggleCalendar(pos.x)
+                        }
+                    }
+                    Behavior on color { ColorAnimation { duration: 150 } }
+                    Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
+                }
+                
+                MediaPlayerBar {
+                    id: mediaPlayerBarRight
+                    widgetWidth: rootBar.mediaPlayerWidth
+                    visible: rootBar.mediaPlayerPosition === 1
+                    width: rootBar.mediaPlayerPosition === 1 ? widgetWidth : 0
+                    onTogglePopup: (xPos) => {
+                        rootBar.isMediaPlayerOpen = !rootBar.isMediaPlayerOpen;
+                        rootBar.toggleMediaPlayer(xPos);
+                    }
+                }
+            }
+        }
+    }
+
+    Component {
+        id: compRight
+        Row {
+            spacing: rootBar.topBarTraySpacing
+            leftPadding: 25; rightPadding: 25
+
+            // КНОПКА БУФЕРА ОБМЕНА
+            Rectangle {
+                width: 34; height: 30; radius: 15
+                color: rootBar.isClipboardOpen ? Qt.rgba(Colors.muted.r, Colors.muted.g, Colors.muted.b, 0.6) : "transparent"
+                scale: clipMouse.pressed ? 0.85 : (clipMouse.containsMouse ? 1.1 : 1.0)
+                StyledText { anchors.centerIn: parent; text: "󰅌"; color: Colors.fg; font.pixelSize: 18 }
+                MouseArea {
+                    id: clipMouse
+                    anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                    onEntered: parent.color = Qt.rgba(Colors.muted.r, Colors.muted.g, Colors.muted.b, 0.4)
+                    onExited: if(!rootBar.isClipboardOpen) parent.color = "transparent"
+                    onClicked: {
+                        let pos = mapToItem(rootBar, width / 2, 0)
+                        rootBar.toggleClipboard(pos.x)
+                    }
+                }
+                Behavior on color { ColorAnimation { duration: 150 } }
+                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
+            }
+
+            // КНОПКА КАЛЬКУЛЯТОРА
+            Rectangle {
+                width: 34; height: 30; radius: 15
+                color: rootBar.isCalcOpen ? Qt.rgba(Colors.muted.r, Colors.muted.g, Colors.muted.b, 0.6) : "transparent"
+                scale: calcMouse.pressed ? 0.85 : (calcMouse.containsMouse ? 1.1 : 1.0)
+                StyledText { anchors.centerIn: parent; text: "󰃬"; color: Colors.fg; font.pixelSize: 18 }
+                MouseArea {
+                    id: calcMouse
+                    anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                    onEntered: parent.color = Qt.rgba(Colors.muted.r, Colors.muted.g, Colors.muted.b, 0.4)
+                    onExited: if(!rootBar.isCalcOpen) parent.color = "transparent"
+                    onClicked: {
+                        let pos = mapToItem(rootBar, width / 2, 0)
+                        rootBar.toggleCalc(pos.x)
+                    }
+                }
+                Behavior on color { ColorAnimation { duration: 150 } }
+                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
+            }
+
+            // КНОПКА OCR
+            Rectangle {
+                width: 34; height: 30; radius: 15
+                color: rootBar.isOcrOpen ? Qt.rgba(Colors.muted.r, Colors.muted.g, Colors.muted.b, 0.6) : "transparent"
+                scale: ocrMouse.pressed ? 0.85 : (ocrMouse.containsMouse ? 1.1 : 1.0)
+                StyledText { anchors.centerIn: parent; text: ""; color: Colors.fg; font.pixelSize: 18 }
+                MouseArea {
+                    id: ocrMouse
+                    anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                    onEntered: parent.color = Qt.rgba(Colors.muted.r, Colors.muted.g, Colors.muted.b, 0.4)
+                    onExited: if(!rootBar.isOcrOpen) parent.color = "transparent"
+                    onClicked: {
+                        let pos = mapToItem(rootBar, width / 2, 0)
+                        rootBar.isOcrOpen = !rootBar.isOcrOpen;
+                        rootBar.toggleOcr(pos.x);
+                    }
+                }
+                Behavior on color { ColorAnimation { duration: 150 } }
+                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
+            }
+
+            // КНОПКА ТАМАГОЧИ
+            Rectangle {
+                width: 34; height: 30; radius: 15
+                color: rootBar.isTamagotchiOpen ? Qt.rgba(Colors.muted.r, Colors.muted.g, Colors.muted.b, 0.6) : "transparent"
+                scale: tamaMouse.pressed ? 0.85 : (tamaMouse.containsMouse ? 1.1 : 1.0)
+                StyledText { anchors.centerIn: parent; text: ""; color: Colors.fg; font.pixelSize: 16 }
+                MouseArea {
+                    id: tamaMouse
+                    anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                    onEntered: parent.color = Qt.rgba(Colors.muted.r, Colors.muted.g, Colors.muted.b, 0.4)
+                    onExited: if(!rootBar.isTamagotchiOpen) parent.color = "transparent"
+                    onClicked: {
+                        let pos = mapToItem(rootBar, width / 2, 0)
+                        rootBar.isTamagotchiOpen = !rootBar.isTamagotchiOpen;
+                        rootBar.toggleTamagotchi(pos.x);
+                    }
+                }
+                Behavior on color { ColorAnimation { duration: 150 } }
+                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
+            }
+
+            // 1. НАСТОЯЩИЙ СИСТЕМНЫЙ ТРЕЙ
+            Row {
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 8
+
+                Repeater {
+                    id: trayRepeater
+                    model: SystemTray.items.values
+
+                    delegate: Rectangle {
+                        width: 28
+                        height: 28
+                        radius: 6
+                        color: trayMouse.containsMouse ? Qt.rgba(Colors.accentBlue.r, Colors.accentBlue.g, Colors.accentBlue.b, 0.2) : "transparent"
+                        Behavior on color { ColorAnimation { duration: 150 } }
+
+                        Image {
+                            id: trayIconImg
+                            anchors.centerIn: parent
+                            width: 20
+                            height: 20
+                            sourceSize: Qt.size(20, 20)
+                            source: modelData.icon ? modelData.icon : ""
+                            fillMode: Image.PreserveAspectFit
+                            smooth: true
+                            visible: status === Image.Ready || status === Image.Loading
+                            layer.enabled: true
+                            layer.effect: ColorOverlay {
+                                color: Colors.fg
+                            }
+                        }
+
+                        MouseArea {
+                            id: trayMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
+                            onClicked: (mouse) => {
+                                if (mouse.button === Qt.LeftButton) {
+                                    modelData.activate();
+                                } else if (mouse.button === Qt.MiddleButton) {
+                                    modelData.secondaryActivate();
+                                } else if (mouse.button === Qt.RightButton) {
+                                    if (modelData.hasMenu) {
+                                        let pos = mapToItem(rootBar, width / 2, 0);
+                                        rootBar.toggleTrayMenu(pos.x, modelData.menu);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // POWER BUTTON — самая правая иконка
+            Rectangle {
+                width: 34; height: 30; radius: 15
+                color: rootBar.isPowerOpen ? Qt.rgba(Colors.error.r, Colors.error.g, Colors.error.b, 0.3) : "transparent"
+                scale: powerMouse.pressed ? 0.85 : (powerMouse.containsMouse ? 1.1 : 1.0)
+                StyledText { anchors.centerIn: parent; text: "󰐥"; color: rootBar.isPowerOpen ? Colors.error : Colors.fg; font.pixelSize: 18 }
+                MouseArea {
+                    id: powerMouse
+                    anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                    onEntered: parent.color = Qt.rgba(Colors.error.r, Colors.error.g, Colors.error.b, 0.2)
+                    onExited: if(!rootBar.isPowerOpen) parent.color = "transparent"
+                    onClicked: {
+                        let pos = mapToItem(rootBar, width / 2, 0)
+                        rootBar.togglePower(pos.x)
+                    }
+                }
+                Behavior on color { ColorAnimation { duration: 150 } }
+                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
+            }
+
+            // 2. КНОПКА СИСТЕМНОГО МЕНЮ (Control Center)
+            Rectangle {
+                width: 90; height: 30; radius: 15
+                color: rootBar.isSysMenuOpen ? Qt.rgba(Colors.muted.r, Colors.muted.g, Colors.muted.b, 0.6) 
+                       : (sysMouse.containsMouse ? Qt.rgba(Colors.muted.r, Colors.muted.g, Colors.muted.b, 0.4) : "transparent")
+                scale: sysMouse.pressed ? 0.9 : (sysMouse.containsMouse ? 1.05 : 1.0)
+                Row { anchors.centerIn: parent; spacing: 12; StyledText { text: " "; color: Colors.fg; font.pixelSize: 20 } }
+                MouseArea {
+                    id: sysMouse
+                    anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        let pos = mapToItem(rootBar, width / 2, 0)
+                        rootBar.toggleSysMenu(pos.x)
+                    }
+                }
+                Behavior on color { ColorAnimation { duration: 150 } }
+                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
+            }
+
+            // 3. КНОПКА ЦЕНТРА УВЕДОМЛЕНИЙ (Самый правый край)
+            Rectangle {
+                width: 34; height: 30; radius: 15
+                color: rootBar.isNotifCenterOpen ? Qt.rgba(Colors.muted.r, Colors.muted.g, Colors.muted.b, 0.6) : (notifMouse.containsMouse ? Qt.rgba(Colors.muted.r, Colors.muted.g, Colors.muted.b, 0.4) : "transparent")
+                scale: notifMouse.pressed ? 0.85 : (notifMouse.containsMouse ? 1.1 : 1.0)
+                StyledText { anchors.centerIn: parent; text: "󰂚"; color: Colors.fg; font.pixelSize: 18 }
+                MouseArea {
+                    id: notifMouse
+                    anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        rootBar.toggleNotificationCenter()
+                    }
+                }
+                Behavior on color { ColorAnimation { duration: 150 } }
+                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack } }
+            }
+        }
+    }
+
+    // Массив компонентов для динамической расстановки
+    property var componentsList: [compWorkspaces, compClock, compRight]
+
+    // ==========================================
+    // КОНТЕЙНЕРЫ (Обеспечивают идеальную центровку)
+    // ==========================================
+    Item {
+        id: leftContainer
+        anchors.left: parent.left
+        anchors.verticalCenter: parent.verticalCenter
+        height: parent.height; width: childrenRect.width
+        Loader { id: leftLoader; anchors.verticalCenter: parent.verticalCenter }
+    }
+    
+    Item {
+        id: centerContainer
+        anchors.centerIn: parent
+        height: parent.height; width: childrenRect.width
+        Loader { id: centerLoader; anchors.verticalCenter: parent.verticalCenter }
+    }
+    
+    Item {
+        id: rightContainer
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        height: parent.height; width: childrenRect.width
+        Loader { id: rightLoader; anchors.verticalCenter: parent.verticalCenter }
+    }
+
+    function updateLayout() {
+        if (rootBar.componentsList && rootBar.topBarOrder) {
+            leftLoader.sourceComponent = rootBar.componentsList[rootBar.topBarOrder[0]]
+            centerLoader.sourceComponent = rootBar.componentsList[rootBar.topBarOrder[1]]
+            rightLoader.sourceComponent = rootBar.componentsList[rootBar.topBarOrder[2]]
+        }
+    }
+
+    onTopBarOrderChanged: updateLayout()
+    Component.onCompleted: {
+        updateLayout()
+        wsCountsProcess.running = true
+    }
+}

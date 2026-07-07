@@ -1,0 +1,14 @@
+WorkspacesWidget 1.0 WorkspacesWidget.qml
+ClockWidget 1.0 ClockWidget.qml
+ClipboardButton 1.0 ClipboardButton.qml
+KeyboardLayoutButton 1.0 KeyboardLayoutButton.qml
+CalculatorButton 1.0 CalculatorButton.qml
+OcrButton 1.0 OcrButton.qml
+TamagotchiButton 1.0 TamagotchiButton.qml
+SystemTrayWidget 1.0 SystemTrayWidget.qml
+PowerButton 1.0 PowerButton.qml
+ControlCenterButton 1.0 ControlCenterButton.qml
+NotificationButton 1.0 NotificationButton.qml
+Default 1.0 Default.qml
+Alternative 1.0 Alternative.qml
+Dynamic 1.0 Dynamic.qml
