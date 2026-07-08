@@ -131,28 +131,12 @@ PanelWindow {
                         Layout.preferredWidth: 72
                         Layout.preferredHeight: 72
                         Layout.alignment: Qt.AlignVCenter
-                        
-                        // Тень под диском для объема
-    Rectangle {
-        id: rootRect
-        anchors.fill: parent
-        color: "transparent"
-                            layer.enabled: true
-                            layer.effect: DropShadow {
-                                horizontalOffset: 0
-                                verticalOffset: 4
-                                radius: 12
-                                samples: 25
-                                color: Qt.rgba(0, 0, 0, 0.5)
-                            }
-                        }
 
                         Rectangle {
                             id: vinylDisc
                             anchors.centerIn: parent
                             width: 72; height: 72; radius: 36
                             color: "#0f0f0f"
-                            layer.enabled: true
                             
                             RotationAnimation on rotation {
                                 loops: Animation.Infinite
@@ -175,8 +159,7 @@ PanelWindow {
                                 anchors.centerIn: parent
                                 width: 30; height: 30; radius: 15
                                 color: Colors.bg
-                                clip: false
-                                layer.enabled: true
+                                clip: true
 
                                 Image {
                                     anchors.fill: parent
