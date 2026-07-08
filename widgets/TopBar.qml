@@ -45,14 +45,14 @@ Rectangle {
     property int mediaPlayerWidth: 180
     property int mediaPlayerPosition: 0 // 0 = слева от часов, 1 = справа от часов
     property string topBarStyle: "Default"
-
+ 
     // MangoWM: состояния тегов (index -> { is_active, is_urgent, client_count, layout })
     property var tagStates: ({})
     property string monitorName: Quickshell.screens.length > 0 ? Quickshell.screens[0].name : "HDMI-1"
     
-    // Текущая раскладка клавиатуры
-    property string currentLayout: "US"
-
+    // Текущая раскладка клавиатуры  
+    property string currentLayout: "US"  
+ 
     Process {
         id: tagsProcess
         command: ["mmsg", "get", "tags", rootBar.monitorName]
@@ -60,7 +60,8 @@ Rectangle {
             onStreamFinished: {
                 if (!this.text) return;
                 try {
-                    let tags = JSON.parse(this.text);
+                    let resp = JSON.parse(this.text);
+                    let tags = resp.tags || [];
                     let states = {};
                     for (let i = 0; i < tags.length; i++) {
                         states[tags[i].index] = tags[i];
@@ -73,13 +74,41 @@ Rectangle {
         }
     }
     
-    // Получение текущей раскладки клавиатуры
-    // Используем file watcher для отслеживания изменений раскладки
-    property string layoutFile: "/tmp/mango_current_layout"
+    property var tagIcons: ({})
+
+    Process {
+        id: clientsProcess
+        command: ["mmsg", "get", "all-clients"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                if (!this.text) return;
+                try {
+                    let resp = JSON.parse(this.text);
+                    let allClients = resp.clients || [];
+                    let icons = {};
+                    for (let i = 0; i < allClients.length; i++) {
+                        let client = allClients[i];
+                        if (client.tags) {
+                            for (let t = 0; t < client.tags.length; t++) {
+                                let tagId = client.tags[t];
+                                if (!icons[tagId] || client.is_focused) {
+                                    icons[tagId] = client.appid || "";
+                                }
+                            }
+                        }
+                    }
+                    rootBar.tagIcons = icons;
+                } catch(e) {
+                    console.log("TopBar: failed to parse clients:", e);
+                }
+            }
+        }
+    }
     
+    // Получение текущей раскладки клавиатуры
     Timer {
         id: layoutCheckTimer
-        interval: 200  // Частая проверка для быстрой реакции
+        interval: 400  // Периодическая проверка раскладки
         running: true
         repeat: true
         onTriggered: {
@@ -90,36 +119,65 @@ Rectangle {
     
     Process {
         id: layoutCheckProcess
-        command: ["cat", "/tmp/mango_current_layout"]
+        command: ["mmsg", "get", "keyboardlayout"]
         stdout: StdioCollector {
             onStreamFinished: {
-                if (this.text && this.text.length > 0) {
-                    let layout = this.text.trim().toUpperCase()
-                    if (layout.length > 0 && layout !== rootBar.currentLayout) {
-                        console.log("Layout changed to:", layout)
-                        rootBar.currentLayout = layout.substring(0, 2)
+                if (!this.text) return;
+                try {
+                    let resp = JSON.parse(this.text);
+                    let layout = resp.layout || "US";
+                    layout = layout.toUpperCase();
+                    let shortCode = "US";
+                    
+                    if (layout.includes("RUSSIAN") || layout.includes("RU")) {
+                        shortCode = "RU";
+                    } else if (layout.includes("ENGLISH") || layout.includes("US")) {
+                        shortCode = "US";
+                    } else if (layout.includes("UKRAINIAN") || layout.includes("UA")) {
+                        shortCode = "UA";
+                    } else if (layout.includes("GERMAN") || layout.includes("DE")) {
+                        shortCode = "DE";
+                    } else if (layout.includes("FRENCH") || layout.includes("FR")) {
+                        shortCode = "FR";
+                    } else {
+                        shortCode = layout.substring(0, 2);
                     }
+                    
+                    if (shortCode !== rootBar.currentLayout) {
+                        rootBar.currentLayout = shortCode;
+                    }
+                } catch(e) {
+                    console.log("TopBar: failed to parse layout:", e);
                 }
             }
         }
     }
     
-    // Процесс для переключения раскладки
+    // Процесс для переключения раскладки в MangoWM
     Process {
         id: switchLayoutProcess
         function switchLayout() {
-            command = ["hyprctl", "switchxkblayout", "all", "next"]
+            command = ["mmsg", "dispatch", "switch_keyboard_layout"]
             running = true
-            // Принудительно обновляем после переключения
-            layoutCheckTimer.restart()
+            // Принудительно запускаем опрос раскладки после клика
+            layoutCheckProcess.running = false
+            layoutCheckProcess.running = true
         }
     }
 
     Timer {
-        interval: 500; running: true; repeat: true
+        interval: 150; running: true; repeat: true
         onTriggered: {
             tagsProcess.running = false
             tagsProcess.running = true
+        }
+    }
+
+    Timer {
+        interval: 1000; running: true; repeat: true
+        onTriggered: {
+            clientsProcess.running = false
+            clientsProcess.running = true
         }
     }
 

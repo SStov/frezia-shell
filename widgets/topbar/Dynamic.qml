@@ -44,35 +44,78 @@ Item {
                         readonly property bool hasWindows: tagState.client_count > 0
                         readonly property bool isUrgent: tagState.is_urgent
                         readonly property bool isHovered: wsMouse.containsMouse
+                        readonly property string appIcon: (dynamicRoot.bar && dynamicRoot.bar.tagIcons) ? (dynamicRoot.bar.tagIcons[wsId] || "") : ""
                         
-                        Layout.preferredWidth: isActive ? 32 : (hasWindows ? 12 : 12)
-                        Layout.preferredHeight: 12
+                        // Если есть окна или активен - делаем большой круг, иначе маленькую точку
+                        readonly property real targetSize: (isActive || hasWindows) ? 28 : 10
                         
+                        Layout.preferredWidth: targetSize
+                        Layout.preferredHeight: targetSize
+                        Layout.alignment: Qt.AlignVCenter
+                        
+                        Behavior on Layout.preferredWidth { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
+                        Behavior on Layout.preferredHeight { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
+
                         Rectangle {
                             anchors.centerIn: parent
                             width: parent.width
                             height: parent.height
-                            radius: 6
-                            color: isUrgent ? Colors.error : (isActive ? Colors.accentBlue : (hasWindows ? Colors.textMain : Qt.rgba(Colors.textSub.r, Colors.textSub.g, Colors.textSub.b, 0.3)))
+                            radius: width / 2
                             
-                            Behavior on width { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
+                            // Активный - с рамкой и фоном, с окнами - прозрачный фон или легкий, пустой - цвет текста
+                            color: isActive ? Qt.rgba(Colors.accentBlue.r, Colors.accentBlue.g, Colors.accentBlue.b, 0.2) : (hasWindows ? "transparent" : Qt.rgba(Colors.textSub.r, Colors.textSub.g, Colors.textSub.b, 0.4))
+                            
+                            border.width: isActive ? 1 : 0
+                            border.color: isActive ? Colors.accentBlue : "transparent"
+                            
                             Behavior on color { ColorAnimation { duration: 200 } }
+                            Behavior on border.color { ColorAnimation { duration: 200 } }
+
+                            Item {
+                                anchors.centerIn: parent
+                                width: 18
+                                height: 18
+                                visible: wsItem.hasWindows && wsItem.appIcon !== ""
+                                
+                                Rectangle {
+                                    id: wsMask
+                                    anchors.fill: parent
+                                    radius: width / 2
+                                    color: "black"
+                                    visible: false
+                                    layer.enabled: true
+                                }
+                                
+                                Image {
+                                    id: wsIconImg
+                                    anchors.fill: parent
+                                    source: wsItem.appIcon !== "" ? "image://icon/" + wsItem.appIcon : ""
+                                    sourceSize: Qt.size(18, 18)
+                                    fillMode: Image.PreserveAspectCrop
+                                    visible: false
+                                }
+                                
+                                MultiEffect {
+                                    source: wsIconImg
+                                    anchors.fill: parent
+                                    maskEnabled: true
+                                    maskSource: wsMask
+                                    visible: wsIconImg.status === Image.Ready
+                                }
+                            }
                             
-                            // Subtle shadow for active workspace
-                            layer.enabled: isActive
-                            layer.effect: Component { MultiEffect { shadowEnabled: true; shadowColor: Qt.rgba(0,0,0,0.3); shadowBlur: 0.5; shadowVerticalOffset: 2 } }
+                            StyledText {
+                                anchors.centerIn: parent
+                                text: "󰀲"
+                                color: isActive ? Colors.accentBlue : Colors.textMain
+                                font.pixelSize: 14
+                                visible: wsItem.hasWindows && wsIconImg.status !== Image.Ready
+                            }
                         }
                         
-                        StyledText {
-                            anchors.centerIn: parent
-                            text: wsId
-                            font.pixelSize: 10
-                            font.family: "Outfit Medium"
-                            color: Colors.bg
-                            visible: isActive
-                            opacity: isActive ? 1 : 0
-                            Behavior on opacity { NumberAnimation { duration: 150 } }
-                        }
+                        // Если пусто, текст не показываем (это просто точка)
+                        // Если есть иконка, тоже не показываем
+                        // Можно показывать номер только при наведении, если нет окон
                         
                         // Tooltip for non-active workspaces
                         Rectangle {

@@ -14,15 +14,15 @@ Item {
     property real panelH: 0.0
     
     width: maxW
-    height: panelH
+    height: panelH 
     
     Behavior on panelH {
         NumberAnimation { duration: 250; easing.type: Easing.OutQuart }
     }
     
     onIsOpenChanged: panelH = isOpen ? maxH : 0.0
-    
-    // Hidden processes for power commands
+      
+    // Hidden processes for power commands  
     Process { id: lockProcess; command: ["loginctl", "lock-session"] }
     Process { id: sleepProcess; command: ["systemctl", "suspend"] }
     Process { id: hibernateProcess; command: ["systemctl", "hibernate"] }

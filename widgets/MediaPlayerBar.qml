@@ -147,40 +147,54 @@ Item {
             }
         }
         
-        // Track title with marquee scroll
         Item {
+            id: textClipArea
             anchors.verticalCenter: parent.verticalCenter
             width: root.widgetWidth - 44
             height: parent.height
             clip: true
 
-            StyledText {
-                id: trackTitleText
-                anchors.verticalCenter: parent.verticalCenter
-                text: root.trackTitle
-                color: Colors.textMain
-                font.pixelSize: 13
+            Item {
+                id: marqueeContainer
+                height: parent.height
+                width: text1.paintedWidth + 50
+                
+                readonly property bool needsMarquee: text1.paintedWidth > textClipArea.width
+                onWidthChanged: x = 0
 
-                property bool needsMarquee: paintedWidth > parent.width
-                property int scrollDistance: needsMarquee ? paintedWidth - parent.width : 0
+                Row {
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 50
+                    
+                    StyledText {
+                        id: text1
+                        text: root.trackTitle
+                        color: Colors.textMain
+                        font.pixelSize: 13
+                    }
+                    
+                    StyledText {
+                        id: text2
+                        text: root.trackTitle
+                        color: Colors.textMain
+                        font.pixelSize: 13
+                        visible: marqueeContainer.needsMarquee
+                    }
+                }
 
-                SequentialAnimation on x {
+                NumberAnimation {
                     id: marqueeAnim
+                    target: marqueeContainer
+                    property: "x"
                     loops: Animation.Infinite
-                    running: trackTitleText.needsMarquee && root.isPlaying
-
-                    NumberAnimation {
-                        from: 0
-                        to: -trackTitleText.scrollDistance
-                        duration: Math.max(3000, trackTitleText.scrollDistance * 10)
-                        easing.type: Easing.Linear
+                    from: 0
+                    to: -(text1.paintedWidth + 50)
+                    duration: (text1.paintedWidth + 50) * 25 // Скорость константная: 40px/сек
+                    running: marqueeContainer.needsMarquee && root.isPlaying
+                    
+                    onRunningChanged: {
+                        if (!running) marqueeContainer.x = 0;
                     }
-                    PauseAnimation { duration: 150 }
-                    NumberAnimation {
-                        to: 0
-                        duration: 0
-                    }
-                    PauseAnimation { duration: 100 }
                 }
             }
         }

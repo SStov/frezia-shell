@@ -1,0 +1,38 @@
+Usage: mmsg <command> [args...]
+
+One-shot queries (get):
+  get version                              Show compositor version
+  get keymode                              Show current keymode
+  get keyboardlayout                       Show current keyboard layout
+  get last_open_surface [monitor]          Show last open surface (default focused monitor)
+  get monitor <name>                       Show monitor details
+  get focusing-client                      Show focused client details
+  get client <id>                          Show client details by ID
+  get tag <monitor> <index>                Show tag details (1‑based index)
+  get all-clients                          List all clients
+  get all-monitors                         List all monitors
+  get all-tags                             List all tags (all monitors)
+  get tags <monitor>                       List tags for a monitor
+  dispatch <func>[,arg...] [client,<id>]   Call a compositor function
+     <func> and arguments are separated by commas.
+     Add 'client,<id>' at the beginning or end to target a specific client.
+     Examples:
+       dispatch togglefloating
+       dispatch movewin,10,100
+       dispatch movewin,10,100 client,4
+Persistent streams (watch):
+  watch monitor <name>                     Stream monitor changes
+  watch focusing-client                    Stream focused client changes
+  watch client <id>                        Stream client changes
+  watch tags <monitor>                     Stream tag changes for a monitor
+  watch all-monitors                       Stream all monitors changes
+  watch all-tags                           Stream all tags changes
+  watch all-clients                        Stream all clients changes
+  watch keymode                            Stream keymode changes
+  watch keyboardlayout                     Stream keyboard layout changes
+  watch last_open_surface [monitor]        Stream last open surface changes
+
+Environment:
+  MANGO_INSTANCE_SIGNATURE  IPC socket path (set by the compositor)
+
+Run 'mmsg --help', '-h' or 'help' to see this message.

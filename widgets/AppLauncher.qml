@@ -182,7 +182,17 @@ PanelWindow {
         usageCounts = counts
         saveConfig()
 
-        app.execute()
+        if (app.runInTerminal) {
+            let terminal = Quickshell.env("TERMINAL") || "kitty"
+            let appClass = app.name.toLowerCase()
+            let cmd = [terminal, "--class", appClass, "--"].concat(app.command)
+            Quickshell.execDetached({
+                command: cmd,
+                workingDirectory: app.workingDirectory
+            })
+        } else {
+            app.execute()
+        }
         close()
     }
 
