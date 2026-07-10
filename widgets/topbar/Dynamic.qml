@@ -287,13 +287,18 @@ Item {
                                 id: vbar
                                 width: 2; height: 10
                                 radius: 1; color: Colors.accentBlue
-                                Timer {
-                                    interval: 150
+                                
+                                readonly property int peakHeight: 12 + ((index * 3) % 5)
+                                readonly property int baseHeight: 4 + ((index * 2) % 3)
+                                readonly property int animDuration: 180 + ((index * 47) % 120)
+                                
+                                SequentialAnimation on height {
+                                    loops: Animation.Infinite
                                     running: MediaService.isPlaying && !dynamicIsland.isHovered
-                                    repeat: true
-                                    onTriggered: vbar.height = 4 + Math.random() * 8
+                                    PauseAnimation { duration: index * 40 }
+                                    NumberAnimation { to: vbar.peakHeight; duration: vbar.animDuration; easing.type: Easing.InOutQuad }
+                                    NumberAnimation { to: vbar.baseHeight; duration: vbar.animDuration; easing.type: Easing.InOutQuad }
                                 }
-                                Behavior on height { NumberAnimation { duration: 150; easing.type: Easing.InOutQuad } }
                             }
                         }
                     }

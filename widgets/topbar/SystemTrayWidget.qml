@@ -9,6 +9,16 @@ Row {
     property var bar
     spacing: 8
 
+    function isSymbolic(iconSource, category) {
+        if (!iconSource) return false;
+        let src = iconSource.toString().toLowerCase();
+        if (src.includes("symbolic")) return true;
+        if (category === 2 || category === 3) return true;
+        let catStr = (category !== undefined && category !== null) ? category.toString().toLowerCase() : "";
+        if (catStr.includes("system") || catStr.includes("hardware")) return true;
+        return false;
+    }
+
     Repeater {
         id: trayRepeater
         model: SystemTray.items.values
@@ -20,6 +30,14 @@ Row {
             color: trayMouse.containsMouse ? Qt.rgba(Colors.accentBlue.r, Colors.accentBlue.g, Colors.accentBlue.b, 0.2) : "transparent"
             Behavior on color { ColorAnimation { duration: 150 } }
 
+            Rectangle {
+                id: overlayColorRect
+                width: 20
+                height: 20
+                color: Colors.fg
+                visible: false
+            }
+
             Image {
                 id: trayIconImg
                 anchors.centerIn: parent
@@ -30,9 +48,13 @@ Row {
                 fillMode: Image.PreserveAspectFit
                 smooth: true
                 visible: status === Image.Ready || status === Image.Loading
-                layer.enabled: true
-                layer.effect: ColorOverlay {
-                    color: Colors.fg
+                layer.enabled: {
+                    if (trayRow.isSymbolic(modelData.icon, modelData.category)) return true;
+                    return Colors.activeMode === "dark";
+                }
+                layer.effect: Blend {
+                    foregroundSource: overlayColorRect
+                    mode: "multiply"
                 }
             }
 

@@ -12,6 +12,12 @@ ElasticDropdown {
     
     maxW: 240
 
+    function isSymbolic(iconSource) {
+        if (!iconSource) return false;
+        let src = iconSource.toString().toLowerCase();
+        return src.includes("symbolic") || src.includes("status") || src.includes("systray") || src.includes("indicator");
+    }
+
     onIsOpenChanged: {
         if (isOpen && menuHandle && menuHandle.updateLayout) {
             // Принудительно обновляем layout меню при открытии
@@ -22,7 +28,7 @@ ElasticDropdown {
     // Динамически обновляем высоту окна, если пункты меню подгрузились с задержкой
     onMaxHChanged: {
         if (isOpen) {
-            panelH = maxH;
+            panelH = maxH; 
         }
     }
 
@@ -120,6 +126,14 @@ ElasticDropdown {
                         Layout.preferredWidth: 20
                         Layout.preferredHeight: 20
 
+                        Rectangle {
+                            id: menuIconOverlayColor
+                            width: 16
+                            height: 16
+                            color: (highlight.active && highlight.targetY === menuItem.y) ? Colors.accentBlue : Colors.fg
+                            visible: false
+                        }
+
                         Image {
                             anchors.centerIn: parent
                             width: 16
@@ -127,9 +141,13 @@ ElasticDropdown {
                             source: modelData.icon || ""
                             fillMode: Image.PreserveAspectFit
                             visible: modelData.icon !== undefined && modelData.icon !== ""
-                            layer.enabled: true
-                            layer.effect: ColorOverlay {
-                                color: (highlight.active && highlight.targetY === menuItem.y) ? Colors.accentBlue : Colors.fg
+                            layer.enabled: {
+                                if (trayMenu.isSymbolic(modelData.icon)) return true;
+                                return Colors.activeMode === "dark";
+                            }
+                            layer.effect: Blend {
+                                foregroundSource: menuIconOverlayColor
+                                mode: "multiply"
                             }
                         }
                         

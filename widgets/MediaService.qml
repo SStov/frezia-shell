@@ -45,6 +45,7 @@ Singleton {
   property real infiniteTrackLength: 922337203685
 
   Component.onCompleted: {
+    updatePlayersSnapshotAndCheckChange();
     updateCurrentPlayer();
   }
 
@@ -365,12 +366,56 @@ Singleton {
     }
   }
 
+  property var _playersSnapshot: []
+
+  function updatePlayersSnapshotAndCheckChange() {
+    if (!Mpris.players || !Mpris.players.values) return false;
+    let vals = Mpris.players.values;
+    let changed = false;
+    if (vals.length !== _playersSnapshot.length) {
+      changed = true;
+    } else {
+      for (var i = 0; i < vals.length; i++) {
+        let p = vals[i];
+        let snap = _playersSnapshot[i];
+        if (!p || !snap) {
+          changed = true;
+          break;
+        }
+        if (p.dbusName !== snap.dbusName || 
+            p.identity !== snap.identity || 
+            p.playbackState !== snap.playbackState) {
+          changed = true;
+          break;
+        }
+      }
+    }
+    
+    if (changed) {
+      let newSnap = [];
+      for (var i = 0; i < vals.length; i++) {
+        let p = vals[i];
+        if (p) {
+          newSnap.push({
+            dbusName: p.dbusName || "",
+            identity: p.identity || "",
+            playbackState: p.playbackState
+          });
+        }
+      }
+      _playersSnapshot = newSnap;
+    }
+    return changed;
+  }
+
   // Update current player when available players change
   Connections {
     target: Mpris.players
     function onValuesChanged() {
-      console.debug("Media: Players changed");
-      updateCurrentPlayer();
+      if (updatePlayersSnapshotAndCheckChange()) {
+        console.debug("Media: Players list or status changed");
+        updateCurrentPlayer();
+      }
     }
   }
 }

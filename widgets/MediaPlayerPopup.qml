@@ -98,7 +98,7 @@ Item {
     
     Timer { 
         interval: 500
-        running: root.player !== null
+        running: root.isOpen && root.player !== null
         repeat: true
         onTriggered: root.refreshTiming()
     }
@@ -283,7 +283,7 @@ Item {
 
                             SequentialAnimation on height {
                                 loops: Animation.Infinite
-                                running: root.isPlaying && !root.cavaActive
+                                running: root.isOpen && root.isPlaying && !root.cavaActive
                                 PauseAnimation { duration: index * 28 }
                                 NumberAnimation { to: peakHeight; duration: pulseDuration; easing.type: Easing.InOutQuad }
                                 NumberAnimation { to: baseHeight; duration: pulseDuration + 80; easing.type: Easing.OutCubic }

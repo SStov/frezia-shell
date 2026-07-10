@@ -92,12 +92,13 @@ PanelWindow {
                 blur: 1.0
                 saturation: 0.5
                 brightness: -0.05
-                opacity: vinylWidget.isPlaying ? 0.6 : 0.2
+                opacity: (vinylWidget.trackArt !== "" && vinylWidget.isPlaying) ? 0.6 : 0.2
+                visible: vinylWidget.trackArt !== ""
                 Behavior on opacity { NumberAnimation { duration: 900; easing.type: Easing.InOutQuad } }
                 
                 SequentialAnimation on scale {
                     loops: Animation.Infinite
-                    running: vinylWidget.isPlaying
+                    running: vinylWidget.isPlaying && vinylWidget.trackArt !== ""
                     NumberAnimation { to: 1.06; duration: 3000; easing.type: Easing.InOutSine }
                     NumberAnimation { to: 0.97; duration: 3000; easing.type: Easing.InOutSine }
                 }

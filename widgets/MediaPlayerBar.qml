@@ -120,7 +120,7 @@ Item {
             RotationAnimation on rotation {
                 loops: Animation.Infinite
                 from: 0; to: 360; duration: 8000
-                running: root.isPlaying && root.trackArt !== ""
+                running: root.visible && root.isPlaying && root.trackArt !== ""
             }
         }
         
@@ -167,7 +167,7 @@ Item {
                     from: 0
                     to: -(text1.paintedWidth + 50)
                     duration: (text1.paintedWidth + 50) * 25 // Скорость константная: 40px/сек
-                    running: marqueeContainer.needsMarquee && root.isPlaying
+                    running: root.visible && marqueeContainer.needsMarquee && root.isPlaying
                     
                     onRunningChanged: {
                         if (!running) marqueeContainer.x = 0;

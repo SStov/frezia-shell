@@ -4,6 +4,7 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Wayland
 import "../Modules"
+import "../core"
 
 PanelWindow {
     id: root
@@ -15,6 +16,12 @@ PanelWindow {
     property int animLength: 400
     property var animCurve: [0.05, 0, 0.133, 0.06, 0.166, 0.4, 0.208, 0.82, 0.25, 1, 1, 1]
     property var colors
+
+    function isSymbolic(iconSource) {
+        if (!iconSource) return false;
+        let src = iconSource.toString().toLowerCase();
+        return src.includes("symbolic") || src.includes("status") || src.includes("systray") || src.includes("indicator");
+    }
 
     function open(handle, x, y) {
         menuHandle = handle;
@@ -184,6 +191,14 @@ PanelWindow {
                                 Layout.preferredWidth: 20
                                 Layout.preferredHeight: 20
 
+                                Rectangle {
+                                    id: trayItemOverlayColor
+                                    width: 16
+                                    height: 16
+                                    color: (highlight.active && highlight.targetY === menuItem.y) ? root.colors.accent : root.colors.muted
+                                    visible: false
+                                }
+
                                 Image {
                                     anchors.centerIn: parent
                                     width: 16
@@ -191,12 +206,14 @@ PanelWindow {
                                     source: modelData.icon || ""
                                     fillMode: Image.PreserveAspectFit
                                     visible: modelData.icon !== undefined && modelData.icon !== ""
-                                    layer.enabled: true
-
-                                    layer.effect: ColorOverlay {
-                                        color: (highlight.active && highlight.targetY === menuItem.y) ? root.colors.accent : root.colors.muted
+                                    layer.enabled: {
+                                        if (root.isSymbolic(modelData.icon)) return true;
+                                        return Colors.activeMode === "dark";
                                     }
-
+                                    layer.effect: Blend {
+                                        foregroundSource: trayItemOverlayColor
+                                        mode: "multiply"
+                                    }
                                 }
 
                                 Text {
