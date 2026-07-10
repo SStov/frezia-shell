@@ -55,12 +55,14 @@ Rectangle {
  
     Process {
         id: tagsProcess
-        command: ["mmsg", "get", "tags", rootBar.monitorName]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                if (!this.text) return;
+        command: ["mmsg", "watch", "tags", rootBar.monitorName]
+        running: true
+        stdout: SplitParser {
+            onRead: (line) => {
+                let clean = line.trim();
+                if (!clean) return;
                 try {
-                    let resp = JSON.parse(this.text);
+                    let resp = JSON.parse(clean);
                     let tags = resp.tags || [];
                     let states = {};
                     for (let i = 0; i < tags.length; i++) {
@@ -68,7 +70,7 @@ Rectangle {
                     }
                     rootBar.tagStates = states;
                 } catch(e) {
-                    console.log("TopBar: failed to parse tags:", e);
+                    console.log("TopBar: failed to parse tags watch:", e);
                 }
             }
         }
@@ -78,12 +80,14 @@ Rectangle {
 
     Process {
         id: clientsProcess
-        command: ["mmsg", "get", "all-clients"]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                if (!this.text) return;
+        command: ["mmsg", "watch", "all-clients"]
+        running: true
+        stdout: SplitParser {
+            onRead: (line) => {
+                let clean = line.trim();
+                if (!clean) return;
                 try {
-                    let resp = JSON.parse(this.text);
+                    let resp = JSON.parse(clean);
                     let allClients = resp.clients || [];
                     let icons = {};
                     for (let i = 0; i < allClients.length; i++) {
@@ -99,32 +103,22 @@ Rectangle {
                     }
                     rootBar.tagIcons = icons;
                 } catch(e) {
-                    console.log("TopBar: failed to parse clients:", e);
+                    console.log("TopBar: failed to parse clients watch:", e);
                 }
             }
         }
     }
     
-    // Получение текущей раскладки клавиатуры
-    Timer {
-        id: layoutCheckTimer
-        interval: 400  // Периодическая проверка раскладки
-        running: true
-        repeat: true
-        onTriggered: {
-            layoutCheckProcess.running = false
-            layoutCheckProcess.running = true
-        }
-    }
-    
     Process {
         id: layoutCheckProcess
-        command: ["mmsg", "get", "keyboardlayout"]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                if (!this.text) return;
+        command: ["mmsg", "watch", "keyboardlayout"]
+        running: true
+        stdout: SplitParser {
+            onRead: (line) => {
+                let clean = line.trim();
+                if (!clean) return;
                 try {
-                    let resp = JSON.parse(this.text);
+                    let resp = JSON.parse(clean);
                     let layout = resp.layout || "US";
                     layout = layout.toUpperCase();
                     let shortCode = "US";
@@ -147,7 +141,7 @@ Rectangle {
                         rootBar.currentLayout = shortCode;
                     }
                 } catch(e) {
-                    console.log("TopBar: failed to parse layout:", e);
+                    console.log("TopBar: failed to parse layout watch:", e);
                 }
             }
         }
@@ -158,26 +152,7 @@ Rectangle {
         id: switchLayoutProcess
         function switchLayout() {
             command = ["mmsg", "dispatch", "switch_keyboard_layout"]
-            running = true
-            // Принудительно запускаем опрос раскладки после клика
-            layoutCheckProcess.running = false
-            layoutCheckProcess.running = true
-        }
-    }
-
-    Timer {
-        interval: 150; running: true; repeat: true
-        onTriggered: {
-            tagsProcess.running = false
-            tagsProcess.running = true
-        }
-    }
-
-    Timer {
-        interval: 1000; running: true; repeat: true
-        onTriggered: {
-            clientsProcess.running = false
-            clientsProcess.running = true
+            running = true;
         }
     }
 

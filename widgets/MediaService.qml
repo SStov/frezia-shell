@@ -55,8 +55,8 @@ Singleton {
 
     let allPlayers = Mpris.players.values;
     let finalPlayers = [];
-    const genericBrowsers = ["firefox", "chromium", "chrome"];
-    const blacklist = (Settings.data.audio && Settings.data.audio.mprisBlacklist) ? Settings.data.audio.mprisBlacklist : [];
+    const genericBrowsers = ["firefox", "chromium", "chrome", "brave", "vivaldi", "opera", "librewolf"];
+    const blacklist = (typeof Settings !== "undefined" && Settings.data && Settings.data.audio && Settings.data.audio.mprisBlacklist) ? Settings.data.audio.mprisBlacklist : [];
 
     // Separate players into specific and generic lists
     let specificPlayers = [];
@@ -112,7 +112,8 @@ Singleton {
               "trackAlbum": dataPlayer.trackAlbum,
               "trackArtUrl": dataPlayer.trackArtUrl,
               "length": dataPlayer.length || 0,
-              "position": dataPlayer.position || 0,
+              get position() { return dataPlayer ? dataPlayer.position : 0; },
+              set position(val) { if (identityPlayer) identityPlayer.position = val; },
               "playbackState": dataPlayer.playbackState,
               "isPlaying": dataPlayer.isPlaying || false,
               "canPlay": dataPlayer.canPlay || false,
@@ -122,7 +123,12 @@ Singleton {
               "canSeek": dataPlayer.canSeek || false,
               "canControl": dataPlayer.canControl || false,
               "_stateSource": dataPlayer,
-              "_controlTarget": identityPlayer
+              "_controlTarget": identityPlayer,
+              "play": function() { if (identityPlayer && identityPlayer.play) identityPlayer.play(); },
+              "pause": function() { if (identityPlayer && identityPlayer.pause) identityPlayer.pause(); },
+              "stop": function() { if (identityPlayer && identityPlayer.stop) identityPlayer.stop(); },
+              "next": function() { if (identityPlayer && identityPlayer.next) identityPlayer.next(); },
+              "previous": function() { if (identityPlayer && identityPlayer.previous) identityPlayer.previous(); }
             };
             finalPlayers.push(virtualPlayer);
             matchedGenericIndices[j] = true;
@@ -164,14 +170,14 @@ Singleton {
     // Prioritize the actively playing player ---
     for (var i = 0; i < availablePlayers.length; i++) {
       if (availablePlayers[i] && availablePlayers[i].playbackState === MprisPlaybackState.Playing) {
-        Logger.d("Media", "Found actively playing player: " + availablePlayers[i].identity);
+        console.debug("Media: Found actively playing player: " + availablePlayers[i].identity);
         selectedPlayerIndex = i;
         return availablePlayers[i];
       }
     }
 
     // fallback if nothing is playing)
-    const preferred = (Settings.data.audio.preferredPlayer || "");
+    const preferred = (typeof Settings !== "undefined" && Settings.data && Settings.data.audio && Settings.data.audio.preferredPlayer) ? Settings.data.audio.preferredPlayer : "";
     if (preferred !== "") {
       for (var i = 0; i < availablePlayers.length; i++) {
         const p = availablePlayers[i];
@@ -194,15 +200,35 @@ Singleton {
 
   property bool autoSwitchingPaused: false
 
+  function isSamePlayer(p1, p2) {
+    if (p1 === p2) return true;
+    if (!p1 || !p2) return false;
+    
+    let id1 = p1.dbusName || p1.identity || "";
+    let id2 = p2.dbusName || p2.identity || "";
+    if (id1 !== "" && id1 === id2) {
+      let isVirtual1 = (p1._stateSource !== undefined);
+      let isVirtual2 = (p2._stateSource !== undefined);
+      if (isVirtual1 || isVirtual2) {
+        return p1.trackTitle === p2.trackTitle &&
+               p1.trackArtUrl === p2.trackArtUrl &&
+               p1.playbackState === p2.playbackState &&
+               p1.isPlaying === p2.isPlaying;
+      }
+      return true;
+    }
+    return false;
+  }
+
   function switchToPlayer(index) {
     let availablePlayers = getAvailablePlayers();
     if (index >= 0 && index < availablePlayers.length) {
       let newPlayer = availablePlayers[index];
-      if (newPlayer !== currentPlayer) {
+      if (!isSamePlayer(newPlayer, currentPlayer)) {
         currentPlayer = newPlayer;
         selectedPlayerIndex = index;
         currentPosition = currentPlayer ? currentPlayer.position : 0;
-        Logger.d("Media", "Manually switched to player " + currentPlayer.identity);
+        console.debug("Media: Manually switched to player " + (currentPlayer ? (currentPlayer.identity || currentPlayer.dbusName) : "none"));
       }
     }
   }
@@ -210,10 +236,10 @@ Singleton {
   // Switch to the most recently active player
   function updateCurrentPlayer() {
     let newPlayer = findActivePlayer();
-    if (newPlayer !== currentPlayer) {
+    if (!isSamePlayer(newPlayer, currentPlayer)) {
       currentPlayer = newPlayer;
       currentPosition = currentPlayer ? currentPlayer.position : 0;
-      Logger.d("Media", "Switching player");
+      console.debug("Media: Switching player to: " + (currentPlayer ? (currentPlayer.identity || currentPlayer.dbusName) : "none"));
     }
   }
 
@@ -309,11 +335,6 @@ Singleton {
   // Avoid overwriting currentPosition while seeking due to backend position changes
   Connections {
     target: currentPlayer
-    function onPositionChanged() {
-      if (!root.isSeeking && currentPlayer) {
-        currentPosition = currentPlayer.position;
-      }
-    }
     function onPlaybackStateChanged() {
       if (!root.isSeeking && currentPlayer) {
         currentPosition = currentPlayer.position;
@@ -348,7 +369,7 @@ Singleton {
   Connections {
     target: Mpris.players
     function onValuesChanged() {
-      Logger.d("Media", "Players changed");
+      console.debug("Media: Players changed");
       updateCurrentPlayer();
     }
   }

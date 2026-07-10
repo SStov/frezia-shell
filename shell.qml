@@ -57,7 +57,7 @@ ShellRoot {
         powerMenu.isOpen = false
         mediaPlayerPopup.isOpen = false
         trayMenu.isOpen = false
-        tamaWidget.isOpen = false
+        topBar.isTamagotchiOpen = false
         ocrWidget.isOpen = false
         notificationCenter.isOpen = false
         appLauncher.close()
@@ -194,6 +194,8 @@ ShellRoot {
             isClipboardOpen: clipboardMenu.isOpen
             isPowerOpen: powerMenu.isOpen
             isNotifCenterOpen: notificationCenter.isOpen
+            isOcrOpen: ocrWidget.isOpen
+            isMediaPlayerOpen: mediaPlayerPopup.isOpen
             
             onToggleCalendar: (xPos) => {
                 calendarX = xPos

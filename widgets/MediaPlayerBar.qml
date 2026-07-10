@@ -10,7 +10,7 @@ Item {
     property int widgetWidth: 180
     signal togglePopup(real xPos)
     
-    property var player: null
+    property var player: MediaService.currentPlayer
     property bool isPlaying: player && player.playbackState === MprisPlaybackState.Playing
     property string trackArt: ""
     property string trackTitle: "..."
@@ -22,25 +22,8 @@ Item {
     Behavior on width { NumberAnimation { duration: 200; easing.type: Easing.OutQuart } }
     Behavior on opacity { NumberAnimation { duration: 200 } }
     
-    function updatePlayer() {
-        let vals = Mpris.players.values
-        if (vals && vals.length > 0) {
-            root.player = vals[0]
-        } else {
-            root.player = null
-        }
-    }
-    
     Component.onCompleted: {
-        updatePlayer()
         updateTrackInfo()
-    }
-    
-    Connections {
-        target: Mpris.players
-        function onValuesChanged() {
-            root.updatePlayer()
-        }
     }
     
     Connections {
@@ -54,12 +37,6 @@ Item {
         }
         function onTrackTitleChanged() {
             if (root.player) root.trackTitle = root.player.trackTitle || "..."
-        }
-        function onPlaybackStateChanged() {
-            // force re-eval of isPlaying
-            root.isPlaying = Qt.binding(function() {
-                return root.player && root.player.playbackState === MprisPlaybackState.Playing
-            })
         }
     }
     
@@ -118,7 +95,7 @@ Item {
                 source: root.trackArt
                 fillMode: Image.PreserveAspectCrop
                 visible: false
-                cache: false
+                cache: true
                 asynchronous: true
             }
             

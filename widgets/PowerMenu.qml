@@ -17,7 +17,7 @@ Item {
     height: panelH 
     
     Behavior on panelH {
-        NumberAnimation { duration: 250; easing.type: Easing.OutQuart }
+        NumberAnimation { duration: 450; easing.type: Easing.OutQuart }
     }
     
     onIsOpenChanged: panelH = isOpen ? maxH : 0.0

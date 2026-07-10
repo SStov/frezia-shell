@@ -18,8 +18,6 @@ Rectangle {
     MouseArea {
         id: layoutMouse
         anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-        onEntered: parent.color = Qt.rgba(Colors.muted.r, Colors.muted.g, Colors.muted.b, 0.4)
-        onExited: parent.color = "transparent"
         onClicked: {
             if (bar) {
                 bar.switchLayout()

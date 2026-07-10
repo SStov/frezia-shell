@@ -79,7 +79,6 @@ Rectangle {
             width: visible ? widgetWidth : 0
             onTogglePopup: (xPos) => {
                 if (bar) {
-                    bar.isMediaPlayerOpen = !bar.isMediaPlayerOpen;
                     bar.toggleMediaPlayer(xPos);
                 }
             }
@@ -170,7 +169,6 @@ Rectangle {
             width: visible ? widgetWidth : 0
             onTogglePopup: (xPos) => {
                 if (bar) {
-                    bar.isMediaPlayerOpen = !bar.isMediaPlayerOpen;
                     bar.toggleMediaPlayer(xPos);
                 }
             }

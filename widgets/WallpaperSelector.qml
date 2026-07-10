@@ -126,7 +126,8 @@ PanelWindow {
     }
     
     function selectActiveWallpaperOnOpen() {
-        let activePath = currentWallFile.text ? currentWallFile.text.trim() : "";
+        let textVal = typeof currentWallFile.text === 'function' ? currentWallFile.text() : currentWallFile.text;
+        let activePath = textVal ? textVal.trim() : "";
         if (activePath === "" && allFiles.length > 0) {
             selectWallpaper(allFiles[0]);
             return;
@@ -726,7 +727,6 @@ echo -n "]"
                     color: "transparent"
                     border.width: 0
                     gradient: Gradient {
-                        orientation: Gradient.Diagonal
                         GradientStop { position: 0.0; color: Qt.rgba(1, 1, 1, 0.08) }
                         GradientStop { position: 0.4; color: Qt.rgba(1, 1, 1, 0.02) }
                         GradientStop { position: 0.41; color: "transparent" }

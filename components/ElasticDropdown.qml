@@ -16,14 +16,14 @@ Item {
     height: panelH
     z: 10
 
-    property real panelH: 0.0
-    
+    property real panelH: 0.0 
+     
     // Простая и быстрая анимация (без лагов на холостом старте)
     Behavior on panelH { 
         NumberAnimation { 
-            duration: 200 
-            easing.type: Easing.OutQuart 
-        } 
+            duration: 200   
+            easing.type: Easing.OutQuart
+        }
     }
     
     onIsOpenChanged: panelH = isOpen ? maxH : 0.0
@@ -65,7 +65,7 @@ Item {
                 }
             }
         }
-    }
+    } 
     
     default property alias content: innerContent.data
 }

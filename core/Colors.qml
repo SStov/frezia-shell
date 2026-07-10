@@ -439,4 +439,8 @@ QtObject {
     Behavior on secondary { ColorAnimation { duration: 400; easing.type: Easing.OutQuart } }
     Behavior on outline { ColorAnimation { duration: 400; easing.type: Easing.OutQuart } }
     Behavior on outlineVariant { ColorAnimation { duration: 400; easing.type: Easing.OutQuart } }
+
+    function opacify(c, alpha) {
+        return Qt.rgba(c.r, c.g, c.b, alpha);
+    }
 }

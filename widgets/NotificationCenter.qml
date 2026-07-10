@@ -52,21 +52,10 @@ PanelWindow {
     }
 
     // ── MPRIS player ─────────────────────────────────
-    property var mprisPlayer: {
-        let vals = Mpris.players.values
-        return (vals && vals.length > 0) ? vals[0] : null
-    }
+    property var mprisPlayer: MediaService.currentPlayer
     property bool isPlaying: mprisPlayer && mprisPlayer.playbackState === MprisPlaybackState.Playing
     property string trackTitle: mprisPlayer ? (mprisPlayer.trackTitle || "Ничего не играет") : "Ничего не играет"
     property string trackArtist: mprisPlayer ? (mprisPlayer.trackArtist || "") : ""
-
-    Connections {
-        target: Mpris.players
-        function onValuesChanged() {
-            let vals = Mpris.players.values
-            notifCenterWindow.mprisPlayer = (vals && vals.length > 0) ? vals[0] : null
-        }
-    }
 
     Connections {
         target: notifCenterWindow.mprisPlayer
@@ -77,12 +66,6 @@ PanelWindow {
         function onTrackArtistChanged() {
             if (notifCenterWindow.mprisPlayer)
                 notifCenterWindow.trackArtist = notifCenterWindow.mprisPlayer.trackArtist || ""
-        }
-        function onPlaybackStateChanged() {
-            notifCenterWindow.isPlaying = Qt.binding(function() {
-                return notifCenterWindow.mprisPlayer
-                    && notifCenterWindow.mprisPlayer.playbackState === MprisPlaybackState.Playing
-            })
         }
     }
 
@@ -310,7 +293,7 @@ PanelWindow {
                         anchors.fill: parent
                         source: notifCenterWindow.mprisPlayer ? (notifCenterWindow.mprisPlayer.trackArtUrl || "") : ""
                         fillMode: Image.PreserveAspectCrop
-                        visible: false; cache: false; asynchronous: true
+                        visible: false; cache: true; asynchronous: true
                     }
                     Rectangle {
                         id: ncAlbumMask

@@ -4,7 +4,6 @@ import Quickshell
 import Quickshell.Wayland
 import Quickshell.Services.Mpris
 import QtQuick.Effects
-import Qt5Compat.GraphicalEffects
 import "../core"
 import "../components"
 
@@ -27,8 +26,7 @@ PanelWindow {
     implicitHeight: 104
     color: "transparent"
 
-    property var playersList: Mpris.players.values
-    property var player: playersList.length > 0 ? playersList[0] : null
+    property var player: MediaService.currentPlayer
     property bool isPlaying: player && player.playbackState === 1
     
     // Свойство для хранения обложки
@@ -64,30 +62,25 @@ PanelWindow {
         Behavior on opacity { NumberAnimation { duration: 500; easing.type: Easing.InOutQuad } }
 
         // ==========================================
-        // 🌟 1. ХАК В QML: ИСПОЛЬЗОВАНИЕ OPACITYMASK
+        // 🌟 1. КЛИПИРОВАНИЕ ЧЕРЕЗ РОДИТЕЛЬСКИЙ RECTANGLE С РАДИУСОМ
         // ==========================================
         
-        // Маскируемый контент (содержит ауру и пилюлю)
-        Item {
-            id: maskedContent
+        Rectangle {
+            id: mainPill
             anchors.fill: parent
-            clip: true // Обязательно, чтобы маска не вылезала
-            
-            // ИСПРАВЛЕНИЕ 1: Скрываем сам элемент, так как его будет отрисовывать OpacityMask.
-            // Иначе Wayland пытается отрендерить его дважды, вызывая сброс текстур.
-            layer.enabled: true 
-            visible: false
+            radius: height / 2
+            color: "transparent"
+            clip: true
 
-            // Оригинальная Магическая Аура (аура внутри маски)
+            // Оригинальная Магическая Аура
             Image {
                 id: hiddenArt
                 source: vinylWidget.trackArt
-             anchors.fill: parent
-             fillMode: Image.PreserveAspectCrop  // ← было без fillMode
-             layer.enabled: true
-             visible: false
-             cache: false
-             asynchronous: true
+                anchors.fill: parent
+                fillMode: Image.PreserveAspectCrop
+                visible: false
+                cache: true
+                asynchronous: true
             }
             
             MultiEffect {
@@ -115,8 +108,9 @@ PanelWindow {
                 anchors.fill: parent
                 anchors.margins: 6
                 radius: height / 2 
-                
                 color: Qt.rgba(Colors.rootBg.r, Colors.rootBg.g, Colors.rootBg.b, 0.65)
+                border.color: Qt.rgba(Colors.outline.r, Colors.outline.g, Colors.outline.b, 0.15)
+                border.width: 1
 
                 RowLayout {
                     anchors.fill: parent
@@ -166,7 +160,7 @@ PanelWindow {
                                     source: vinylWidget.trackArt
                                     fillMode: Image.PreserveAspectCrop
                                     visible: vinylWidget.trackArt !== ""
-                                    cache: false
+                                    cache: true
                                     asynchronous: true
                                 }
                                 Rectangle {
@@ -234,36 +228,6 @@ PanelWindow {
                     }
                 }
             }
-        }
-
-        // A non-visible rectangle that defines the shape of our mask
-        Rectangle {
-            id: maskShape
-            width: vinylWidget.width
-            height: vinylWidget.height
-            radius: vinylWidget.height / 2
-            color: "white"
-            layer.enabled: true
-            visible: false
-        }
-
-        // A GaussianBlur effect that uses the rectangle above as its source,
-        // creating a blurred version of the shape. This will be our actual mask.
-        GaussianBlur {
-            id: blurredMask
-            anchors.fill: maskShape
-            source: maskShape
-            radius: 8
-            samples: 17
-            layer.enabled: true // It's only used as a source for the OpacityMask
-            visible: false
-        }
-
-        // Применение Маски
-        OpacityMask {
-            source: maskedContent
-            maskSource: blurredMask
-            anchors.fill: maskedContent
         }
     }
 }
