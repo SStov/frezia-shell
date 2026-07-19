@@ -135,6 +135,9 @@ PanelWindow {
         //     card.slideDelay = index * 60; card.triggerOpen()
         //     карточка «начинает» за экраном при x=390, по команде анимируется в x=0
         property int slideDelay: 0
+        property real slideX: 390
+
+        transform: Translate { x: card.slideX }
 
         // Каскадная анимация открытия
         SequentialAnimation {
@@ -142,7 +145,7 @@ PanelWindow {
             running: false
             PauseAnimation { duration: card.slideDelay }
             NumberAnimation {
-                target: card; property: "x"; from: 390; to: 0
+                target: card; property: "slideX"; from: 390; to: 0
                 duration: 380; easing.type: Easing.OutCubic
             }
         }
@@ -153,7 +156,7 @@ PanelWindow {
             running: false
             PauseAnimation { duration: Math.max(0, 150 - card.slideDelay) }
             NumberAnimation {
-                target: card; property: "x"; to: 390
+                target: card; property: "slideX"; to: 390
                 duration: 320; easing.type: Easing.InCubic
             }
         }
@@ -564,10 +567,10 @@ PanelWindow {
 
     Component.onCompleted: {
         // Изначально все блоки за экраном, анимации остановлены
-        blockProfile.x = 390; blockProfile.triggerClose()
-        blockToggles.x = 390; blockToggles.triggerClose()
-        blockPlayer.x = 390; blockPlayer.triggerClose()
-        blockNotifs.x = 390; blockNotifs.triggerClose()
+        blockProfile.slideX = 390; blockProfile.triggerClose()
+        blockToggles.slideX = 390; blockToggles.triggerClose()
+        blockPlayer.slideX = 390; blockPlayer.triggerClose()
+        blockNotifs.slideX = 390; blockNotifs.triggerClose()
         // Явно сбрасываем isOpen — хот-релоад не должен оставлять виджет открытым
         isOpen = false
     }

@@ -41,17 +41,13 @@ Rectangle {
     border.width: 1
     clip: true
 
-    // Smooth physics-like height animations
+    // Smooth height animation — single Behavior on panelH only
+    // (Behavior on maxH was removed — it created a double-animation chain
+    //  where maxH animated 250ms → triggered panelH which animated another 250ms)
     Behavior on panelH {
         NumberAnimation {
-            duration: 250
-            easing.type: Easing.OutQuad
-        }
-    }
-    Behavior on maxH {
-        NumberAnimation {
-            duration: 250
-            easing.type: Easing.OutQuad
+            duration: 280
+            easing.type: Easing.OutCubic
         }
     }
 
@@ -86,21 +82,25 @@ Rectangle {
         }
     }
 
-    onMaxHChanged: {
-        if (isOpen) {
-            panelH = maxH;
-        }
-    }
+    // onMaxHChanged removed — panelH is now set directly in onIsExpandedChanged
+    // to avoid the double-animation chain (maxH anim → triggers panelH anim).
 
     onIsExpandedChanged: {
         if (isExpanded) {
             isExpandedAnimationFinished = false;
+            // IMPORTANT: reset isAnimationFinished so compactContent immediately hides
+            // (visible: false via opacity=0) before panelH starts growing.
+            // Without this, the compact image card stays visible for 150ms while the
+            // panel height expands 220→580 — causing the image to visually "stretch".
+            isAnimationFinished = false;
+            panelH = 580;
             expandTimer.start();
             refilterList();
         } else {
             isExpandedAnimationFinished = false;
             isAnimationFinished = false;
-            animationTimer.start(); // Re-trigger animation timer to fade in compact content after collapse!
+            panelH = 220; // Set directly — single panelH animation only
+            animationTimer.start();
             clipModel.clear();
         }
     }
@@ -918,7 +918,7 @@ Rectangle {
 
                     delegate: Rectangle {
                         id: pillRect
-                        implicitWidth: pillRow.implicitWidth + 20
+                        width: 32
                         height: 28
                         radius: 14
                         color: activeFilter === filterType 
@@ -932,22 +932,11 @@ Rectangle {
                         Behavior on color { ColorAnimation { duration: 150 } }
                         Behavior on border.color { ColorAnimation { duration: 150 } }
 
-                        RowLayout {
-                            id: pillRow
+                        StyledText {
                             anchors.centerIn: parent
-                            spacing: 6
-                            
-                            StyledText {
-                                text: icon
-                                font.pixelSize: 11
-                                color: activeFilter === filterType ? Colors.accentBlue : Colors.textSub
-                            }
-                            StyledText {
-                                text: name
-                                font.pixelSize: 11
-                                font.bold: activeFilter === filterType
-                                color: activeFilter === filterType ? Colors.textMain : Colors.textSub
-                            }
+                            text: icon
+                            font.pixelSize: 13
+                            color: activeFilter === filterType ? Colors.accentBlue : Colors.textSub
                         }
 
                         MouseArea {
@@ -973,11 +962,8 @@ Rectangle {
                         spacing: 8
                         clip: true
 
-                        // Staggered puff-out fade add animation
-                        add: Transition {
-                            NumberAnimation { properties: "opacity"; from: 0.0; to: 1.0; duration: 180; easing.type: Easing.OutQuad }
-                            NumberAnimation { properties: "scale"; from: 0.92; to: 1.0; duration: 220; easing.type: Easing.OutBack }
-                        }
+                        // add: Transition removed — it conflicted with the delegateInnerWrapper
+                        // entry animation (both animated opacity+scale simultaneously → broken visual)
 
                         delegate: Rectangle {
                             id: delegateItem
@@ -1015,18 +1001,19 @@ Rectangle {
                                 : (delegateItem.isHovered ? Qt.rgba(Colors.outline.r, Colors.outline.g, Colors.outline.b, 0.15) : "transparent")
                             border.width: 1
 
-                            Behavior on color { ColorAnimation { duration: delegateItem.isHovered ? 100 : 0 } }
-                            Behavior on border.color { ColorAnimation { duration: delegateItem.isHovered ? 100 : 0 } }
+                            // No Behavior on color/border — instant change on both hover-in and hover-out.
+                            // A fade-out Behavior creates a lingering gray trail when the mouse leaves.
 
-                            // Internal visual container for custom slide-up stagger animation
+                            // Internal visual container for cascade slide-up + fade entry animation.
+                            // scale removed: it forced QTransform on every frame for every delegate
+                            // and OutBack easing made items exceed their bounds → broke clip-rect → repainted neighbors.
                             Item {
                                 id: delegateInnerWrapper
                                 anchors.fill: parent
 
-                                // Initial values for entry cascade animation
-                                y: 15
+                                // Initial values for entry animation (no scale — only y + opacity)
+                                y: 12
                                 opacity: 0.0
-                                scale: 0.94
 
                                 Component.onCompleted: {
                                     entryAnim.start();
@@ -1034,12 +1021,11 @@ Rectangle {
 
                                 SequentialAnimation {
                                     id: entryAnim
-                                    // Cascade stagger delay based on list index, capped at 8 items
-                                    PauseAnimation { duration: Math.max(0, Math.min(delegateItem.index !== undefined ? delegateItem.index : 0, 8)) * 30 }
+                                    // Stagger delay capped at 6 items × 20ms = max 120ms (was 8×30=240ms)
+                                    PauseAnimation { duration: Math.max(0, Math.min(delegateItem.index !== undefined ? delegateItem.index : 0, 6)) * 20 }
                                     ParallelAnimation {
-                                        NumberAnimation { target: delegateInnerWrapper; property: "y"; to: 0; duration: 480; easing.type: Easing.OutQuint }
-                                        NumberAnimation { target: delegateInnerWrapper; property: "opacity"; to: 1.0; duration: 500; easing.type: Easing.OutQuint }
-                                        NumberAnimation { target: delegateInnerWrapper; property: "scale"; to: 1.0; duration: 480; easing.type: Easing.OutBack }
+                                        NumberAnimation { target: delegateInnerWrapper; property: "y"; to: 0; duration: 280; easing.type: Easing.OutCubic }
+                                        NumberAnimation { target: delegateInnerWrapper; property: "opacity"; to: 1.0; duration: 280; easing.type: Easing.OutCubic }
                                     }
                                 }
 
